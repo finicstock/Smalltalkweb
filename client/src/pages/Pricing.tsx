@@ -10,7 +10,7 @@ import { Check, Zap, Crown, Shield, BarChart3, Mail, MessageCircle, Star } from 
 import { useState } from "react";
 import { toast } from "sonner";
 
-const LOGO_URL = "/manus-storage/logo_fb6c7e34.png";
+const LOGO_URL = "/manus-storage/logo_nobg_4a51d334.png";
 
 export default function Pricing() {
   const { user, isAuthenticated } = useAuth();

@@ -8,7 +8,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { MessageCircle, X, Send, Minimize2 } from "lucide-react";
 import { nanoid } from "nanoid";
 
-const LOGO_URL = "/manus-storage/logo_fb6c7e34.png";
+const LOGO_URL = "/manus-storage/logo_nobg_4a51d334.png";
 
 function getSessionId() {
   let id = localStorage.getItem("chat_session_id");

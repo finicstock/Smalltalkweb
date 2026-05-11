@@ -12,7 +12,7 @@ import { Menu, X, Search, User, LogOut, Settings, CreditCard } from "lucide-reac
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 
-const LOGO_URL = "/manus-storage/logo_fb6c7e34.png";
+const LOGO_URL = "/manus-storage/logo_nobg_4a51d334.png";
 
 const NAV_ITEMS = [
   { label: "홈", href: "/" },

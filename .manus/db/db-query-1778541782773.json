@@ -1,0 +1,9 @@
+{
+  "query": "\nINSERT INTO plans (name, description, priceMonthly, priceYearly, features, isActive, sortOrder) VALUES \n('프리미엄', '닉스의 스몰톡 프리미엄 구독 플랜', 19900, 199000, '[\"모든 프리미엄 콘텐츠 무제한 열람\",\"신규 콘텐츠 알림\",\"이메일 뉴스레터\",\"채팅 고객센터\",\"연간 구독 시 2개월 할인\"]', 1, 1);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Xdc9X9udmFRqyRV.root --database RTT22ooc84a286qPp38cfo --execute \nINSERT INTO plans (name, description, priceMonthly, priceYearly, features, isActive, sortOrder) VALUES \n('프리미엄', '닉스의 스몰톡 프리미엄 구독 플랜', 19900, 199000, '[\"모든 프리미엄 콘텐츠 무제한 열람\",\"신규 콘텐츠 알림\",\"이메일 뉴스레터\",\"채팅 고객센터\",\"연간 구독 시 2개월 할인\"]', 1, 1);\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1850
+}

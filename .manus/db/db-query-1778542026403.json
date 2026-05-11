@@ -1,0 +1,46 @@
+{
+  "query": "SELECT * FROM chat_messages ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Xdc9X9udmFRqyRV.root --database RTT22ooc84a286qPp38cfo --execute SELECT * FROM chat_messages ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "30001",
+      "sessionId": "1XOKMxbU37Y1Q0Qo",
+      "userId": "1",
+      "senderType": "user",
+      "message": "테스트 메시지입니다. 구독 방법을 알고 싶습니다.",
+      "isRead": "0",
+      "createdAt": "2026-05-11 23:26:49"
+    },
+    {
+      "id": "3",
+      "sessionId": "1XOKMxbU37Y1Q0Qo",
+      "userId": "1",
+      "senderType": "user",
+      "message": "안녕하세요, 구독 관련 문의드립니다.",
+      "isRead": "0",
+      "createdAt": "2026-05-11 23:15:43"
+    },
+    {
+      "id": "2",
+      "sessionId": "test-1778540812570",
+      "userId": "NULL",
+      "senderType": "user",
+      "message": "Hello",
+      "isRead": "0",
+      "createdAt": "2026-05-11 23:06:53"
+    },
+    {
+      "id": "1",
+      "sessionId": "test-msg-1778540711206",
+      "userId": "NULL",
+      "senderType": "user",
+      "message": "Hello from test",
+      "isRead": "0",
+      "createdAt": "2026-05-11 23:05:11"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tsessionId\tuserId\tsenderType\tmessage\tisRead\tcreatedAt\n30001\t1XOKMxbU37Y1Q0Qo\t1\tuser\t테스트 메시지입니다. 구독 방법을 알고 싶습니다.\t0\t2026-05-11 23:26:49\n3\t1XOKMxbU37Y1Q0Qo\t1\tuser\t안녕하세요, 구독 관련 문의드립니다.\t0\t2026-05-11 23:15:43\n2\ttest-1778540812570\tNULL\tuser\tHello\t0\t2026-05-11 23:06:53\n1\ttest-msg-1778540711206\tNULL\tuser\tHello from test\t0\t2026-05-11 23:05:11\n",
+  "stderr": "",
+  "execution_time_ms": 1980
+}

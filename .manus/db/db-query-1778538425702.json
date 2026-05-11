@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `playlist_contents` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`playlistId` int NOT NULL,\n\t`contentId` int NOT NULL,\n\t`sortOrder` int NOT NULL DEFAULT 0,\n\t`addedAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `playlist_contents_id` PRIMARY KEY(`id`)\n);\n\nCREATE TABLE `playlists` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`title` varchar(300) NOT NULL,\n\t`slug` varchar(300) NOT NULL,\n\t`description` text,\n\t`thumbnailUrl` text,\n\t`isPublic` boolean NOT NULL DEFAULT true,\n\t`sortOrder` int NOT NULL DEFAULT 0,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `playlists_id` PRIMARY KEY(`id`),\n\tCONSTRAINT `playlists_slug_unique` UNIQUE(`slug`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Xdc9X9udmFRqyRV.root --database RTT22ooc84a286qPp38cfo --execute CREATE TABLE `playlist_contents` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`playlistId` int NOT NULL,\n\t`contentId` int NOT NULL,\n\t`sortOrder` int NOT NULL DEFAULT 0,\n\t`addedAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `playlist_contents_id` PRIMARY KEY(`id`)\n);\n\nCREATE TABLE `playlists` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`title` varchar(300) NOT NULL,\n\t`slug` varchar(300) NOT NULL,\n\t`description` text,\n\t`thumbnailUrl` text,\n\t`isPublic` boolean NOT NULL DEFAULT true,\n\t`sortOrder` int NOT NULL DEFAULT 0,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `playlists_id` PRIMARY KEY(`id`),\n\tCONSTRAINT `playlists_slug_unique` UNIQUE(`slug`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2907
+}

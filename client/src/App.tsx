@@ -4,35 +4,70 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import ChatWidget from "./components/ChatWidget";
+
+// Pages
 import Home from "./pages/Home";
+import Contents from "./pages/Contents";
+import ContentDetail from "./pages/ContentDetail";
+import Pricing from "./pages/Pricing";
+import SearchPage from "./pages/SearchPage";
+import MyPage from "./pages/MyPage";
+
+// Admin Pages
+import AdminLayout from "./pages/admin/AdminLayout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminContents from "./pages/admin/AdminContents";
+import AdminCategories from "./pages/admin/AdminCategories";
+import AdminPlaylists from "./pages/admin/AdminPlaylists";
+import AdminSubscribers from "./pages/admin/AdminSubscribers";
+import AdminNewsletter from "./pages/admin/AdminNewsletter";
+import AdminChat from "./pages/admin/AdminChat";
+import AdminPlans from "./pages/admin/AdminPlans";
+
+function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+  return (
+    <AdminLayout>
+      <Component />
+    </AdminLayout>
+  );
+}
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
+      {/* Public */}
+      <Route path="/" component={Home} />
+      <Route path="/contents" component={Contents} />
+      <Route path="/contents/:slug" component={ContentDetail} />
+      <Route path="/pricing" component={Pricing} />
+      <Route path="/search" component={SearchPage} />
+      <Route path="/mypage" component={MyPage} />
+
+      {/* Admin */}
+      <Route path="/admin">{() => <AdminRoute component={AdminDashboard} />}</Route>
+      <Route path="/admin/contents">{() => <AdminRoute component={AdminContents} />}</Route>
+      <Route path="/admin/categories">{() => <AdminRoute component={AdminCategories} />}</Route>
+      <Route path="/admin/playlists">{() => <AdminRoute component={AdminPlaylists} />}</Route>
+      <Route path="/admin/subscribers">{() => <AdminRoute component={AdminSubscribers} />}</Route>
+      <Route path="/admin/newsletter">{() => <AdminRoute component={AdminNewsletter} />}</Route>
+      <Route path="/admin/chat">{() => <AdminRoute component={AdminChat} />}</Route>
+      <Route path="/admin/plans">{() => <AdminRoute component={AdminPlans} />}</Route>
+
+      <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
           <Router />
+          <ChatWidget />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

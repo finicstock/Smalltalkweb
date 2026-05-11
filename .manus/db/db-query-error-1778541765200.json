@@ -1,0 +1,8 @@
+{
+  "query": "\nINSERT INTO plans (name, slug, description, price, period, features, isActive, sortOrder) VALUES \n('월간 구독', 'monthly', '매월 자동 결제되는 구독 플랜입니다.', 19900, 'monthly', '[\"모든 프리미엄 콘텐츠 무제한 열람\",\"신규 콘텐츠 알림\",\"이메일 뉴스레터\",\"채팅 고객센터\"]', 1, 1),\n('연간 구독', 'yearly', '연간 결제로 2개월 할인 혜택을 받으세요.', 199000, 'yearly', '[\"모든 프리미엄 콘텐츠 무제한 열람\",\"신규 콘텐츠 알림\",\"이메일 뉴스레터\",\"채팅 고객센터\",\"연간 구독 전용 콘텐츠\",\"2개월 할인 혜택\"]', 1, 2);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user Xdc9X9udmFRqyRV.root --database RTT22ooc84a286qPp38cfo --execute \nINSERT INTO plans (name, slug, description, price, period, features, isActive, sortOrder) VALUES \n('월간 구독', 'monthly', '매월 자동 결제되는 구독 플랜입니다.', 19900, 'monthly', '[\"모든 프리미엄 콘텐츠 무제한 열람\",\"신규 콘텐츠 알림\",\"이메일 뉴스레터\",\"채팅 고객센터\"]', 1, 1),\n('연간 구독', 'yearly', '연간 결제로 2개월 할인 혜택을 받으세요.', 199000, 'yearly', '[\"모든 프리미엄 콘텐츠 무제한 열람\",\"신규 콘텐츠 알림\",\"이메일 뉴스레터\",\"채팅 고객센터\",\"연간 구독 전용 콘텐츠\",\"2개월 할인 혜택\"]', 1, 2);\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 2: Unknown column 'slug' in 'field list'"
+  ]
+}

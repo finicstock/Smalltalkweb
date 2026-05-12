@@ -125,7 +125,14 @@ export default function Pricing() {
                     </li>
                   ))}
                 </ul>
-                <Button variant="outline" className="w-full" disabled={isAuthenticated}>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  disabled={isAuthenticated}
+                  onClick={() => {
+                    if (!isAuthenticated) window.location.href = getLoginUrl();
+                  }}
+                >
                   {isAuthenticated ? "현재 이용 중" : "무료로 시작"}
                 </Button>
               </CardContent>

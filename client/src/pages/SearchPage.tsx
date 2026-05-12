@@ -4,13 +4,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
-import { Link } from "wouter";
-import { useState } from "react";
+import { Link, useSearch } from "wouter";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Lock, Eye, TrendingUp, PlayCircle } from "lucide-react";
 
 export default function SearchPage() {
-  const [query, setQuery] = useState("");
-  const [submitted, setSubmitted] = useState("");
+  const searchString = useSearch();
+  const params = useMemo(() => new URLSearchParams(searchString), [searchString]);
+  const initialQuery = params.get("q") ?? "";
+  const [query, setQuery] = useState(initialQuery);
+  const [submitted, setSubmitted] = useState(initialQuery);
 
   const { data: results, isLoading } = trpc.content.listPublished.useQuery(
     { search: submitted, limit: 20 },
@@ -21,6 +24,11 @@ export default function SearchPage() {
     e.preventDefault();
     if (query.trim()) setSubmitted(query.trim());
   };
+
+  useEffect(() => {
+    setQuery(initialQuery);
+    setSubmitted(initialQuery);
+  }, [initialQuery]);
 
   return (
     <Layout>

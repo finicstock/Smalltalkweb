@@ -1,32 +1,42 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/NotFound";
+import { lazy, Suspense, type ElementType } from "react";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
 // Pages
-import Home from "./pages/Home";
-import Contents from "./pages/Contents";
-import ContentDetail from "./pages/ContentDetail";
-import Pricing from "./pages/Pricing";
-import SearchPage from "./pages/SearchPage";
-import MyPage from "./pages/MyPage";
-import PreviewPage from "./pages/PreviewPage";
-import AuthorProfile from "./pages/AuthorProfile";
+const Home = lazy(() => import("./pages/Home"));
+const Contents = lazy(() => import("./pages/Contents"));
+const ContentDetail = lazy(() => import("./pages/ContentDetail"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const SearchPage = lazy(() => import("./pages/SearchPage"));
+const MyPage = lazy(() => import("./pages/MyPage"));
+const PreviewPage = lazy(() => import("./pages/PreviewPage"));
+const AuthorProfile = lazy(() => import("./pages/AuthorProfile"));
+const PlaylistDetail = lazy(() => import("./pages/PlaylistDetail"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Admin Pages
-import AdminLayout from "./pages/admin/AdminLayout";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminContents from "./pages/admin/AdminContents";
-import AdminCategories from "./pages/admin/AdminCategories";
-import AdminPlaylists from "./pages/admin/AdminPlaylists";
-import AdminSubscribers from "./pages/admin/AdminSubscribers";
-import AdminPlans from "./pages/admin/AdminPlans";
-import AdminTelegram from "./pages/admin/AdminTelegram";
-import AdminContentEditor from "./pages/admin/AdminContentEditor";
+const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminContents = lazy(() => import("./pages/admin/AdminContents"));
+const AdminCategories = lazy(() => import("./pages/admin/AdminCategories"));
+const AdminPlaylists = lazy(() => import("./pages/admin/AdminPlaylists"));
+const AdminSubscribers = lazy(() => import("./pages/admin/AdminSubscribers"));
+const AdminPlans = lazy(() => import("./pages/admin/AdminPlans"));
+const AdminTelegram = lazy(() => import("./pages/admin/AdminTelegram"));
+const AdminContentEditor = lazy(() => import("./pages/admin/AdminContentEditor"));
 
-function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+function PageFallback() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary" />
+    </div>
+  );
+}
+
+function AdminRoute({ component: Component }: { component: ElementType }) {
   return (
     <AdminLayout>
       <Component />
@@ -46,6 +56,7 @@ function Router() {
       <Route path="/mypage" component={MyPage} />
       <Route path="/preview/:token" component={PreviewPage} />
       <Route path="/author" component={AuthorProfile} />
+      <Route path="/playlists/:slug" component={PlaylistDetail} />
 
       {/* Admin - Full screen editor (no AdminLayout) */}
       <Route path="/admin/editor/new" component={AdminContentEditor} />
@@ -72,7 +83,9 @@ function App() {
       <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
-          <Router />
+          <Suspense fallback={<PageFallback />}>
+            <Router />
+          </Suspense>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

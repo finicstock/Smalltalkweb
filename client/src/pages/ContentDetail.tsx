@@ -12,6 +12,7 @@ import { getLoginUrl } from "@/const";
 import { Streamdown } from "streamdown";
 import { useTheme } from "@/contexts/ThemeContext";
 import { toast } from "sonner";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 
 // ─── 목차 항목 타입 ─────────────────────────────────────────────
 interface TocItem {
@@ -164,9 +165,15 @@ export default function ContentDetail() {
   // 목차 추출
   const { toc, processedBody } = useMemo(() => {
     if (!content?.body?.trim().startsWith("<")) return { toc: [], processedBody: content?.body ?? "" };
-    const items = extractToc(content.body);
-    const injected = injectHeadingIds(content.body);
+    const safeBody = sanitizeHtml(content.body);
+    const items = extractToc(safeBody);
+    const injected = injectHeadingIds(safeBody);
     return { toc: items, processedBody: injected };
+  }, [content?.body]);
+
+  const paywallPreviewHtml = useMemo(() => {
+    if (!content?.body?.trim().startsWith("<")) return "";
+    return sanitizeHtml(content.body.slice(0, 500) + "...");
   }, [content?.body]);
 
   // 스크롤 감지로 활성 heading 추적
@@ -331,7 +338,7 @@ export default function ContentDetail() {
               <div className="max-h-48 overflow-hidden relative">
                 <div className="prose prose-lg max-w-none text-foreground opacity-50 blur-[2px]">
                   {content.body?.trim().startsWith('<') ? (
-                    <div dangerouslySetInnerHTML={{ __html: content.body.slice(0, 500) + "..." }} />
+                    <div dangerouslySetInnerHTML={{ __html: paywallPreviewHtml }} />
                   ) : (
                     <Streamdown>{content.body.slice(0, 300) + "..."}</Streamdown>
                   )}

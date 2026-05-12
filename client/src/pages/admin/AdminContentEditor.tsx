@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Paragraph } from "@tiptap/extension-paragraph";
@@ -30,38 +31,52 @@ import {
   Highlighter, ChevronDown, Plus, Trash2, Maximize2, Minimize2, FileText,
   Clock, History, Share2, BookTemplate, CircleDot, Square, Triangle, Hash
 } from "lucide-react";
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, type CSSProperties } from "react";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { useLocation, useRoute } from "wouter";
 import { toast } from "sonner";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
 
-// ─── FontSize Extension (custom) ───────────────────────────
-const FontSize = TextStyle.extend({
+// ─── Rich Text Style Extension (custom) ───────────────────────────
+function renderRichTextStyle(attributes: Record<string, any>) {
+  const styles: string[] = [];
+  if (attributes.fontSize) styles.push(`font-size: ${attributes.fontSize}`);
+  if (attributes.fontFamily) styles.push(`font-family: ${attributes.fontFamily}`);
+  if (attributes.letterSpacing) styles.push(`letter-spacing: ${attributes.letterSpacing}`);
+  return styles.length ? { style: styles.join("; ") } : {};
+}
+
+const RichTextStyle = TextStyle.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
       fontSize: {
         default: null,
         parseHTML: (element: HTMLElement) => element.style.fontSize?.replace(/['"]+/g, "") || null,
-        renderHTML: (attributes: Record<string, any>) => {
-          if (!attributes.fontSize && !attributes.letterSpacing) return {};
-          const styles: string[] = [];
-          if (attributes.fontSize) styles.push(`font-size: ${attributes.fontSize}`);
-          if (attributes.letterSpacing) styles.push(`letter-spacing: ${attributes.letterSpacing}`);
-          return { style: styles.join("; ") };
-        },
+        renderHTML: renderRichTextStyle,
+      },
+      fontFamily: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.style.fontFamily?.replace(/['"]+/g, "") || null,
+        renderHTML: renderRichTextStyle,
       },
       letterSpacing: {
         default: null,
         parseHTML: (element: HTMLElement) => element.style.letterSpacing || null,
-        renderHTML: (attributes: Record<string, any>) => {
-          if (!attributes.letterSpacing) return {};
-          return { style: `letter-spacing: ${attributes.letterSpacing}` };
-        },
+        renderHTML: renderRichTextStyle,
       },
     };
   },
 });
+
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 function slugify(text: string) {
   return text
@@ -73,6 +88,15 @@ function slugify(text: string) {
 }
 
 type EditorStep = "type" | "edit" | "publish";
+type TextPromptKind = "link" | "youtube" | "caption";
+type TextPromptConfig = {
+  kind: TextPromptKind;
+  title: string;
+  description: string;
+  label: string;
+  placeholder: string;
+  confirmLabel: string;
+};
 
 export default function AdminContentEditor() {
   const [, navigate] = useLocation();
@@ -116,6 +140,7 @@ export default function AdminContentEditor() {
   const [isUploading, setIsUploading] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [showFontFamily, setShowFontFamily] = useState(false);
   const [showFontSize, setShowFontSize] = useState(false);
   const [showLineHeight, setShowLineHeight] = useState(false);
   const [showLetterSpacing, setShowLetterSpacing] = useState(false);
@@ -132,10 +157,29 @@ export default function AdminContentEditor() {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showBulletStyle, setShowBulletStyle] = useState(false);
+  const [showQuoteStyles, setShowQuoteStyles] = useState(false);
   const [previewToken, setPreviewToken] = useState<string | null>(null);
+  const [textPrompt, setTextPrompt] = useState<TextPromptConfig | null>(null);
+  const [textPromptValue, setTextPromptValue] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
+
+  const closeToolbarMenus = () => {
+    setShowColorPicker(false);
+    setShowHighlightPicker(false);
+    setShowFontFamily(false);
+    setShowFontSize(false);
+    setShowLineHeight(false);
+    setShowLetterSpacing(false);
+    setShowBulletStyle(false);
+    setShowQuoteStyles(false);
+  };
+
+  const openTextPrompt = (config: TextPromptConfig) => {
+    setTextPrompt(config);
+    setTextPromptValue("");
+  };
 
   // ─── Tiptap Editor ───────────────────────────
   const editor = useEditor({
@@ -164,7 +208,7 @@ export default function AdminContentEditor() {
       Underline,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Link.configure({ openOnClick: false }),
-      FontSize,
+      RichTextStyle,
       Color,
       Highlight.configure({ multicolor: true }),
       Table.configure({ resizable: true }),
@@ -373,7 +417,7 @@ export default function AdminContentEditor() {
   const setLetterSpacing = (value: string) => {
     if (!editor) return;
     if (value === "default") {
-      editor.chain().focus().unsetMark("textStyle").run();
+      editor.chain().focus().setMark("textStyle", { letterSpacing: null }).run();
     } else {
       editor.chain().focus().setMark("textStyle", { letterSpacing: value }).run();
     }
@@ -391,20 +435,65 @@ export default function AdminContentEditor() {
 
   // ─── Link Insert ───────────────────────────
   const insertLink = () => {
-    if (!editor) return;
-    const url = window.prompt("링크 URL을 입력하세요:");
-    if (url) {
-      editor.chain().focus().setLink({ href: url }).run();
-    }
+    openTextPrompt({
+      kind: "link",
+      title: "링크 삽입",
+      description: "선택한 텍스트에 연결할 URL을 입력하세요.",
+      label: "URL",
+      placeholder: "https://example.com",
+      confirmLabel: "링크 적용",
+    });
   };
 
   // ─── YouTube Insert ───────────────────────────
   const insertYoutube = () => {
-    if (!editor) return;
-    const url = window.prompt("YouTube 영상 URL을 입력하세요:");
-    if (url) {
-      editor.commands.setYoutubeVideo({ src: url, width: 640, height: 360 });
+    openTextPrompt({
+      kind: "youtube",
+      title: "YouTube 영상 삽입",
+      description: "본문에 삽입할 YouTube 영상 URL을 입력하세요.",
+      label: "YouTube URL",
+      placeholder: "https://www.youtube.com/watch?v=...",
+      confirmLabel: "영상 삽입",
+    });
+  };
+
+  const insertCaption = () => {
+    openTextPrompt({
+      kind: "caption",
+      title: "이미지 캡션",
+      description: "이미지 아래에 표시할 짧은 설명을 입력하세요.",
+      label: "캡션",
+      placeholder: "이미지 설명",
+      confirmLabel: "캡션 삽입",
+    });
+  };
+
+  const handleTextPromptSubmit = () => {
+    if (!editor || !textPrompt) return;
+    const value = textPromptValue.trim();
+    if (!value) {
+      setTextPrompt(null);
+      return;
     }
+
+    if (textPrompt.kind === "link") {
+      editor.chain().focus().setLink({ href: value }).run();
+    }
+
+    if (textPrompt.kind === "youtube") {
+      editor.commands.setYoutubeVideo({ src: value, width: 640, height: 360 });
+    }
+
+    if (textPrompt.kind === "caption") {
+      editor
+        .chain()
+        .focus()
+        .insertContent(`<figure class="image-caption"><figcaption>${escapeHtml(value)}</figcaption></figure>`)
+        .run();
+    }
+
+    setTextPrompt(null);
+    setTextPromptValue("");
   };
 
   // ─── Table Insert ───────────────────────────
@@ -417,11 +506,42 @@ export default function AdminContentEditor() {
   const setFontSize = (size: string) => {
     if (!editor) return;
     if (size === "default") {
-      editor.chain().focus().unsetMark("textStyle").run();
+      editor.chain().focus().setMark("textStyle", { fontSize: null }).run();
     } else {
       editor.chain().focus().setMark("textStyle", { fontSize: size }).run();
     }
     setShowFontSize(false);
+  };
+
+  // ─── Font Family ───────────────────────────
+  const setFontFamily = (fontFamily: string) => {
+    if (!editor) return;
+    if (fontFamily === "default") {
+      editor.chain().focus().setMark("textStyle", { fontFamily: null }).run();
+    } else {
+      editor.chain().focus().setMark("textStyle", { fontFamily }).run();
+    }
+    setShowFontFamily(false);
+  };
+
+  // ─── Quote Styles ───────────────────────────
+  const insertQuoteStyle = (style: QuoteStyle) => {
+    if (!editor) return;
+    setShowQuoteStyles(false);
+
+    if (style.value === "blockquote") {
+      editor.chain().focus().toggleBlockquote().run();
+      return;
+    }
+
+    const { from, to, empty } = editor.state.selection;
+    const selectedText = empty
+      ? "인용문을 입력하세요"
+      : editor.state.doc.textBetween(from, to, "\n").trim() || "인용문을 입력하세요";
+
+    const chain = editor.chain().focus();
+    if (!empty) chain.deleteSelection();
+    chain.insertContent(`<p style="${style.css}">${escapeHtml(selectedText)}</p>`).run();
   };
 
   // ─── Text Color ───────────────────────────
@@ -815,9 +935,9 @@ export default function AdminContentEditor() {
             )}
 
             {/* Toolbar */}
-            <div className="sticky top-14 z-10 bg-white border-b border-gray-200 -mx-6 px-2 py-1.5 mb-4">
-              {/* Row 1: Text formatting - 모바일 가로 스크롤 */}
-              <div className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+            <div className="sticky top-14 z-50 overflow-visible bg-white border-b border-gray-200 -mx-6 px-2 py-1.5 mb-4">
+              {/* Row 1: Text formatting - wraps so dropdowns are not clipped */}
+              <div className="flex flex-wrap items-center gap-0.5 overflow-visible">
                 {/* Undo / Redo */}
                 <ToolbarButton icon={Undo2} label="실행취소" onClick={() => editor?.chain().focus().undo().run()} />
                 <ToolbarButton icon={Redo2} label="다시실행" onClick={() => editor?.chain().focus().redo().run()} />
@@ -829,10 +949,48 @@ export default function AdminContentEditor() {
                 <ToolbarButton icon={Heading3} label="제목3" onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()} active={editor?.isActive("heading", { level: 3 })} />
                 <ToolbarSeparator />
 
-                {/* Font Size Dropdown */}
-                <div className="relative">
+                {/* Font Family Dropdown */}
+                <div className="relative overflow-visible">
                   <button
-                    onClick={() => { setShowFontSize(!showFontSize); setShowColorPicker(false); setShowHighlightPicker(false); }}
+                    onClick={() => {
+                      const next = !showFontFamily;
+                      closeToolbarMenus();
+                      setShowFontFamily(next);
+                    }}
+                    title="글꼴"
+                    className="flex items-center gap-1 px-2 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 text-[12px]"
+                  >
+                    <Type className="h-3.5 w-3.5" />
+                    <span className="font-medium">글꼴</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showFontFamily && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[70] w-52 max-h-72 overflow-y-auto">
+                      {FONT_FAMILIES.map((font) => (
+                        <button
+                          key={font.value}
+                          onClick={() => setFontFamily(font.value)}
+                          className="w-full text-left px-3 py-2 text-[12px] hover:bg-gray-100"
+                          style={{ fontFamily: font.css }}
+                        >
+                          <span className="block text-gray-900">{font.label}</span>
+                          {font.description && (
+                            <span className="block text-[10px] text-gray-400">{font.description}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Font Size Dropdown */}
+                <div className="relative overflow-visible">
+                  <button
+                    onClick={() => {
+                      const next = !showFontSize;
+                      closeToolbarMenus();
+                      setShowFontSize(next);
+                    }}
                     title="글자 크기"
                     className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 text-[12px]"
                   >
@@ -840,7 +998,7 @@ export default function AdminContentEditor() {
                     <ChevronDown className="h-3 w-3" />
                   </button>
                   {showFontSize && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 w-32">
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[70] w-32">
                       {[
                         { label: "기본", value: "default" },
                         { label: "12px", value: "12px" },
@@ -875,9 +1033,13 @@ export default function AdminContentEditor() {
                 <ToolbarSeparator />
 
                 {/* Text Color */}
-                <div className="relative">
+                <div className="relative overflow-visible">
                   <button
-                    onClick={() => { setShowColorPicker(!showColorPicker); setShowHighlightPicker(false); setShowFontSize(false); }}
+                    onClick={() => {
+                      const next = !showColorPicker;
+                      closeToolbarMenus();
+                      setShowColorPicker(next);
+                    }}
                     title="글자색"
                     className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                   >
@@ -885,7 +1047,7 @@ export default function AdminContentEditor() {
                     <ChevronDown className="h-3 w-3" />
                   </button>
                   {showColorPicker && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-50 min-w-[200px]">
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-[70] min-w-[200px]">
                       <p className="text-[11px] text-gray-500 mb-2 px-1 font-medium">자주 사용하는 색</p>
                       <div className="flex gap-2 mb-3 pb-3 border-b border-gray-100">
                         <button
@@ -918,9 +1080,13 @@ export default function AdminContentEditor() {
                 </div>
 
                 {/* Highlight Color */}
-                <div className="relative">
+                <div className="relative overflow-visible">
                   <button
-                    onClick={() => { setShowHighlightPicker(!showHighlightPicker); setShowColorPicker(false); setShowFontSize(false); }}
+                    onClick={() => {
+                      const next = !showHighlightPicker;
+                      closeToolbarMenus();
+                      setShowHighlightPicker(next);
+                    }}
                     title="형광펜"
                     className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                   >
@@ -928,7 +1094,7 @@ export default function AdminContentEditor() {
                     <ChevronDown className="h-3 w-3" />
                   </button>
                   {showHighlightPicker && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-50 min-w-[200px]">
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-[70] min-w-[200px]">
                       <p className="text-[11px] text-gray-500 mb-2 px-1 font-medium">자주 사용하는 색</p>
                       <div className="flex gap-2 mb-3 pb-3 border-b border-gray-100">
                         <button
@@ -971,9 +1137,13 @@ export default function AdminContentEditor() {
                 <ToolbarSeparator />
 
                 {/* Line Height */}
-                <div className="relative">
+                <div className="relative overflow-visible">
                   <button
-                    onClick={() => { setShowLineHeight(!showLineHeight); setShowLetterSpacing(false); setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); }}
+                    onClick={() => {
+                      const next = !showLineHeight;
+                      closeToolbarMenus();
+                      setShowLineHeight(next);
+                    }}
                     title="줄 간격"
                     className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 text-[11px]"
                   >
@@ -981,7 +1151,7 @@ export default function AdminContentEditor() {
                     <ChevronDown className="h-3 w-3" />
                   </button>
                   {showLineHeight && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 w-28">
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[70] w-28">
                       {[
                         { label: "기본", value: "default" },
                         { label: "1.0 (좁게)", value: "1.0" },
@@ -1006,9 +1176,13 @@ export default function AdminContentEditor() {
                 </div>
 
                 {/* Letter Spacing */}
-                <div className="relative">
+                <div className="relative overflow-visible">
                   <button
-                    onClick={() => { setShowLetterSpacing(!showLetterSpacing); setShowLineHeight(false); setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); }}
+                    onClick={() => {
+                      const next = !showLetterSpacing;
+                      closeToolbarMenus();
+                      setShowLetterSpacing(next);
+                    }}
                     title="자간"
                     className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 text-[11px]"
                   >
@@ -1016,7 +1190,7 @@ export default function AdminContentEditor() {
                     <ChevronDown className="h-3 w-3" />
                   </button>
                   {showLetterSpacing && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 w-28">
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[70] w-28">
                       {[
                         { label: "기본", value: "default" },
                         { label: "-2px (좁게)", value: "-2px" },
@@ -1045,9 +1219,13 @@ export default function AdminContentEditor() {
                 <ToolbarButton icon={List} label="목록" onClick={() => editor?.chain().focus().toggleBulletList().run()} active={editor?.isActive("bulletList")} />
                 <ToolbarButton icon={ListOrdered} label="번호목록" onClick={() => editor?.chain().focus().toggleOrderedList().run()} active={editor?.isActive("orderedList")} />
                 {/* Bullet Style */}
-                <div className="relative">
+                <div className="relative overflow-visible">
                   <button
-                    onClick={() => { setShowBulletStyle(!showBulletStyle); setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); }}
+                    onClick={() => {
+                      const next = !showBulletStyle;
+                      closeToolbarMenus();
+                      setShowBulletStyle(next);
+                    }}
                     title="글머리 스타일"
                     className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
                   >
@@ -1055,7 +1233,7 @@ export default function AdminContentEditor() {
                     <ChevronDown className="h-3 w-3" />
                   </button>
                   {showBulletStyle && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 w-40">
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-[70] w-40">
                       <button onClick={() => { editor?.chain().focus().toggleBulletList().run(); setShowBulletStyle(false); }} className="w-full text-left px-3 py-2 text-[12px] hover:bg-gray-100 flex items-center gap-2">
                         <CircleDot className="h-3.5 w-3.5" /> ● 원형 (기본)
                       </button>
@@ -1076,7 +1254,40 @@ export default function AdminContentEditor() {
                 <ToolbarSeparator />
 
                 {/* Block elements */}
-                <ToolbarButton icon={Quote} label="인용" onClick={() => editor?.chain().focus().toggleBlockquote().run()} active={editor?.isActive("blockquote")} />
+                <div className="relative overflow-visible">
+                  <button
+                    onClick={() => {
+                      const next = !showQuoteStyles;
+                      closeToolbarMenus();
+                      setShowQuoteStyles(next);
+                    }}
+                    title="인용구 스타일"
+                    className={`flex items-center gap-0.5 px-1.5 py-1.5 rounded transition-colors ${editor?.isActive("blockquote") ? "bg-gray-200 text-gray-900" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"}`}
+                  >
+                    <Quote className="h-4 w-4" />
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showQuoteStyles && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-2 z-[70] w-64">
+                      {QUOTE_STYLES.map((style) => (
+                        <button
+                          key={style.value}
+                          onClick={() => insertQuoteStyle(style)}
+                          className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-gray-50"
+                        >
+                          <span className="block text-[12px] font-medium text-gray-900">{style.label}</span>
+                          <span className="block text-[11px] text-gray-400 mb-2">{style.description}</span>
+                          <span
+                            className="block text-[12px] text-gray-700"
+                            style={style.previewStyle}
+                          >
+                            인용문 미리보기
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <ToolbarButton icon={Code} label="코드" onClick={() => editor?.chain().focus().toggleCodeBlock().run()} active={editor?.isActive("codeBlock")} />
                 <ToolbarButton icon={Minus} label="구분선" onClick={() => editor?.chain().focus().setHorizontalRule().run()} />
                 <ToolbarSeparator />
@@ -1084,16 +1295,8 @@ export default function AdminContentEditor() {
                 {/* Media & Insert */}
                 <ToolbarButton icon={ImageIcon} label="이미지" onClick={handleImageSelect} />
                 <button
-                  onClick={() => {
-                    if (!editor) return;
-                    const caption = window.prompt("측션 텍스트를 입력하세요:");
-                    if (caption) {
-                      editor.chain().focus().insertContent(
-                        `<figure class="image-caption"><figcaption>${caption}</figcaption></figure>`
-                      ).run();
-                    }
-                  }}
-                  title="이미지 측션"
+                  onClick={insertCaption}
+                  title="이미지 캡션"
                   className="px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 text-[11px] font-medium"
                 >
                   Aa
@@ -1412,12 +1615,47 @@ export default function AdminContentEditor() {
       </div>
 
       {/* Close dropdowns on click outside */}
-      {(showColorPicker || showHighlightPicker || showFontSize || showLineHeight || showLetterSpacing) && (
+      {(showColorPicker || showHighlightPicker || showFontFamily || showFontSize || showLineHeight || showLetterSpacing || showBulletStyle || showQuoteStyles) && (
         <div
           className="fixed inset-0 z-[5]"
-          onClick={() => { setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); setShowLineHeight(false); setShowLetterSpacing(false); }}
+          onClick={closeToolbarMenus}
         />
       )}
+
+      <Dialog open={Boolean(textPrompt)} onOpenChange={(open) => { if (!open) setTextPrompt(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{textPrompt?.title}</DialogTitle>
+            <DialogDescription>{textPrompt?.description}</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleTextPromptSubmit();
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="editor-text-prompt">{textPrompt?.label}</Label>
+              <Input
+                id="editor-text-prompt"
+                value={textPromptValue}
+                onChange={(event) => setTextPromptValue(event.target.value)}
+                placeholder={textPrompt?.placeholder}
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setTextPrompt(null)}>
+                취소
+              </Button>
+              <Button type="submit">
+                {textPrompt?.confirmLabel ?? "적용"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Preview Modal */}
       {showPreview && (
@@ -1456,7 +1694,7 @@ export default function AdminContentEditor() {
               </div>
               <div
                 className="content-body prose prose-lg max-w-none"
-                dangerouslySetInnerHTML={{ __html: editor?.getHTML() || "" }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(editor?.getHTML() || "") }}
               />
             </div>
           </div>
@@ -1535,7 +1773,139 @@ export default function AdminContentEditor() {
   );
 }
 
-// ─── Color Constants ───────────────────────────
+// ─── Toolbar Constants ───────────────────────────
+type QuoteStyle = {
+  value: string;
+  label: string;
+  description: string;
+  css: string;
+  previewStyle: CSSProperties;
+};
+
+const FONT_FAMILIES = [
+  {
+    label: "기본",
+    value: "default",
+    css: undefined,
+    description: "사이트 기본 글꼴",
+  },
+  {
+    label: "Pretendard",
+    value: "Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+    css: "Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+    description: "깔끔한 본문용",
+  },
+  {
+    label: "나눔고딕",
+    value: "'Nanum Gothic', 'Malgun Gothic', sans-serif",
+    css: "'Nanum Gothic', 'Malgun Gothic', sans-serif",
+    description: "익숙한 고딕체",
+  },
+  {
+    label: "Noto Sans KR",
+    value: "'Noto Sans KR', 'Malgun Gothic', sans-serif",
+    css: "'Noto Sans KR', 'Malgun Gothic', sans-serif",
+    description: "가독성 중심",
+  },
+  {
+    label: "맑은 고딕",
+    value: "'Malgun Gothic', sans-serif",
+    css: "'Malgun Gothic', sans-serif",
+    description: "윈도우 기본",
+  },
+  {
+    label: "나눔명조",
+    value: "'Nanum Myeongjo', 'Noto Serif KR', serif",
+    css: "'Nanum Myeongjo', 'Noto Serif KR', serif",
+    description: "칼럼/에세이 느낌",
+  },
+  {
+    label: "Georgia",
+    value: "Georgia, 'Times New Roman', serif",
+    css: "Georgia, 'Times New Roman', serif",
+    description: "영문 세리프",
+  },
+  {
+    label: "Courier New",
+    value: "'Courier New', monospace",
+    css: "'Courier New', monospace",
+    description: "고정폭",
+  },
+];
+
+const QUOTE_STYLES: QuoteStyle[] = [
+  {
+    value: "blockquote",
+    label: "기본 인용문",
+    description: "일반 블록 인용",
+    css: "",
+    previewStyle: {
+      borderLeft: "3px solid #d1d5db",
+      color: "#6b7280",
+      paddingLeft: "12px",
+    },
+  },
+  {
+    value: "vertical-line",
+    label: "버티컬 라인",
+    description: "왼쪽 선으로 강조",
+    css: "border-left: 4px solid #2B3A4E; padding: 12px 16px; margin: 20px 0; background: #f8fafc; color: #1f2937;",
+    previewStyle: {
+      borderLeft: "4px solid #2B3A4E",
+      padding: "10px 12px",
+      background: "#f8fafc",
+    },
+  },
+  {
+    value: "speech-bubble",
+    label: "말풍선",
+    description: "코멘트/대화형 강조",
+    css: "border: 1px solid #d1d5db; border-radius: 12px; padding: 14px 16px; margin: 20px 0; background: #ffffff; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06); color: #1f2937;",
+    previewStyle: {
+      border: "1px solid #d1d5db",
+      borderRadius: "12px",
+      padding: "10px 12px",
+      boxShadow: "0 8px 20px rgba(15, 23, 42, 0.06)",
+    },
+  },
+  {
+    value: "quote-line",
+    label: "라인 & 따옴표",
+    description: "프리미엄 콘텐츠형 인용",
+    css: "border-top: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; padding: 18px 20px; margin: 24px 0; color: #374151; font-size: 18px; font-weight: 600;",
+    previewStyle: {
+      borderTop: "1px solid #d1d5db",
+      borderBottom: "1px solid #d1d5db",
+      padding: "10px 12px",
+      fontWeight: 600,
+    },
+  },
+  {
+    value: "post-it",
+    label: "포스트잇",
+    description: "메모/주의사항 강조",
+    css: "border: 1px solid #fde68a; border-radius: 8px; padding: 14px 16px; margin: 20px 0; background: #fffbeb; color: #713f12;",
+    previewStyle: {
+      border: "1px solid #fde68a",
+      borderRadius: "8px",
+      padding: "10px 12px",
+      background: "#fffbeb",
+      color: "#713f12",
+    },
+  },
+  {
+    value: "frame",
+    label: "프레임",
+    description: "박스형 핵심 문장",
+    css: "border: 2px solid #9ca3af; border-radius: 4px; padding: 16px 18px; margin: 22px 0; background: #ffffff; color: #111827;",
+    previewStyle: {
+      border: "2px solid #9ca3af",
+      borderRadius: "4px",
+      padding: "10px 12px",
+    },
+  },
+];
+
 const TEXT_COLORS = [
   { label: "기본", value: "default" },
   { label: "검정", value: "#000000" },
@@ -1756,8 +2126,10 @@ function VersionHistoryModal({ contentId, onClose, onRestore }: { contentId: num
 function TemplatesModal({ onClose, onInsert, currentBody, currentTitle }: { onClose: () => void; onInsert: (body: string) => void; currentBody: string; currentTitle: string }) {
   const { data: templates, isLoading } = trpc.admin.listTemplates.useQuery();
   const utils = trpc.useUtils();
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [templateName, setTemplateName] = useState(currentTitle || "내 템플릿");
   const createTemplate = trpc.admin.createTemplate.useMutation({
-    onSuccess: () => { utils.admin.listTemplates.invalidate(); toast.success("템플릿이 저장되었습니다."); },
+    onSuccess: () => { utils.admin.listTemplates.invalidate(); toast.success("템플릿이 저장되었습니다."); setShowSaveDialog(false); },
     onError: (err: any) => toast.error(err.message || "템플릿 저장 실패"),
   });
   const deleteTemplate = trpc.admin.deleteTemplate.useMutation({
@@ -1765,8 +2137,11 @@ function TemplatesModal({ onClose, onInsert, currentBody, currentTitle }: { onCl
   });
 
   const handleSaveAsTemplate = () => {
-    const name = window.prompt("템플릿 이름을 입력하세요:", currentTitle || "내 템플릿");
-    if (!name) return;
+    const name = templateName.trim();
+    if (!name) {
+      toast.error("템플릿 이름을 입력해주세요.");
+      return;
+    }
     createTemplate.mutate({ name, content: currentBody });
   };
 
@@ -1778,7 +2153,7 @@ function TemplatesModal({ onClose, onInsert, currentBody, currentTitle }: { onCl
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="h-5 w-5 text-gray-500" /></button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          <Button variant="outline" className="w-full mb-4 text-[13px]" onClick={handleSaveAsTemplate}>
+          <Button variant="outline" className="w-full mb-4 text-[13px]" onClick={() => setShowSaveDialog(true)}>
             <Plus className="h-3.5 w-3.5 mr-1.5" /> 현재 글을 템플릿으로 저장
           </Button>
           {isLoading && <p className="text-sm text-gray-500 text-center py-8">로딩 중...</p>}
@@ -1805,6 +2180,40 @@ function TemplatesModal({ onClose, onInsert, currentBody, currentTitle }: { onCl
           ))}
         </div>
       </div>
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>템플릿 저장</DialogTitle>
+            <DialogDescription>현재 글을 다시 사용할 수 있는 템플릿으로 저장합니다.</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleSaveAsTemplate();
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="template-name">템플릿 이름</Label>
+              <Input
+                id="template-name"
+                value={templateName}
+                onChange={(event) => setTemplateName(event.target.value)}
+                placeholder="내 템플릿"
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowSaveDialog(false)}>
+                취소
+              </Button>
+              <Button type="submit" disabled={createTemplate.isPending}>
+                저장
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

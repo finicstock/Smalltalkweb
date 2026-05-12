@@ -259,10 +259,12 @@
 .editor-content .tiptap p { margin: 0.8em 0; }
 .editor-content .tiptap img { max-width: 100%; height: auto; border-radius: 8px; margin: 1em 0; }
 .editor-content .tiptap blockquote {
-  border-left: 3px solid #e5e7eb;
-  padding-left: 1em;
-  margin: 1em 0;
-  color: #6b7280;
+  border-left: 4px solid #2B3A4E;
+  border-radius: 0 8px 8px 0;
+  padding: 0.9em 1.1em;
+  margin: 1.4em 0;
+  background: #f8fafc;
+  color: #374151;
 }
 .editor-content .tiptap hr {
   border: none;
@@ -426,8 +428,10 @@
   margin: 2em 0;
 }
 .content-body blockquote {
-  border-left: 3px solid #e5e7eb;
-  padding-left: 1em;
-  margin: 1em 0;
-  color: #6b7280;
+  border-left: 4px solid #2B3A4E;
+  border-radius: 0 8px 8px 0;
+  padding: 0.9em 1.1em;
+  margin: 1.4em 0;
+  background: #f8fafc;
+  color: #374151;
 }

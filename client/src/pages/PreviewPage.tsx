@@ -1,4 +1,6 @@
 import { trpc } from "@/lib/trpc";
+import { sanitizeHtml } from "@/lib/sanitizeHtml";
+import { useMemo } from "react";
 import { useRoute } from "wouter";
 
 export default function PreviewPage() {
@@ -8,6 +10,7 @@ export default function PreviewPage() {
     { token },
     { enabled: !!token }
   );
+  const safeBody = useMemo(() => sanitizeHtml(content?.body || ""), [content?.body]);
 
   if (isLoading) {
     return (
@@ -52,7 +55,7 @@ export default function PreviewPage() {
         </div>
         <div
           className="content-body prose prose-lg max-w-none"
-          dangerouslySetInnerHTML={{ __html: content.body || "" }}
+          dangerouslySetInnerHTML={{ __html: safeBody }}
         />
       </div>
     </div>

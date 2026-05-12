@@ -17,6 +17,7 @@ const LOGO_URL = "/manus-storage/logo_nobg_4a51d334.png";
 const NAV_ITEMS = [
   { label: "홈", href: "/" },
   { label: "콘텐츠", href: "/contents" },
+  { label: "작성자", href: "/author" },
   { label: "구독", href: "/pricing" },
 ];
 

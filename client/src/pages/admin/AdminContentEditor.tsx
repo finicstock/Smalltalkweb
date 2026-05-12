@@ -815,9 +815,9 @@ export default function AdminContentEditor() {
             )}
 
             {/* Toolbar */}
-            <div className="sticky top-14 z-10 bg-white border-b border-gray-200 -mx-6 px-4 py-1.5 mb-4">
-              {/* Row 1: Text formatting */}
-              <div className="flex items-center gap-0.5 flex-wrap">
+            <div className="sticky top-14 z-10 bg-white border-b border-gray-200 -mx-6 px-2 py-1.5 mb-4">
+              {/* Row 1: Text formatting - 모바일 가로 스크롤 */}
+              <div className="flex items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
                 {/* Undo / Redo */}
                 <ToolbarButton icon={Undo2} label="실행취소" onClick={() => editor?.chain().focus().undo().run()} />
                 <ToolbarButton icon={Redo2} label="다시실행" onClick={() => editor?.chain().focus().redo().run()} />
@@ -1595,7 +1595,7 @@ function ToolbarButton({ icon: Icon, label, onClick, active }: { icon: any; labe
     <button
       onClick={onClick}
       title={label}
-      className={`p-1.5 rounded transition-colors ${active ? "bg-gray-200 text-gray-900" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"}`}
+      className={`p-2 rounded transition-colors flex-shrink-0 ${active ? "bg-gray-200 text-gray-900" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"}`}
     >
       <Icon className="h-4 w-4" />
     </button>

@@ -493,7 +493,7 @@ export async function recordContentView(contentId: number) {
 }
 
 // ─── Newsletter Subscribers ───────────────────────────────────────
-export async function subscribeNewsletter(email: string) {
+export async function subscribeNewsletter(email: string, name?: string) {
   const db = await getDb();
   if (!db) return;
   return db.insert(newsletterSubscribers).values({
@@ -568,4 +568,48 @@ export async function updateUserPreference(userId: number, theme: "light" | "dar
       theme,
     });
   }
+}
+
+// ─── Advanced Stats ───────────────────────────────────────────────
+export async function getDailyViewStats(days: number = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const rows = await db.select({
+    date: contentStats.date,
+    views: sql<number>`SUM(${contentStats.views})`,
+  })
+    .from(contentStats)
+    .where(gte(contentStats.date, since))
+    .groupBy(contentStats.date)
+    .orderBy(contentStats.date);
+  return rows;
+}
+
+export async function getSubscriptionConversionRate() {
+  const db = await getDb();
+  if (!db) return { total: 0, paid: 0, rate: 0 };
+  const [totalRow] = await db.select({ count: sql<number>`COUNT(*)` }).from(users);
+  const [paidRow] = await db.select({ count: sql<number>`COUNT(DISTINCT ${subscriptions.userId})` })
+    .from(subscriptions)
+    .where(eq(subscriptions.status, 'active'));
+  const total = Number(totalRow?.count ?? 0);
+  const paid = Number(paidRow?.count ?? 0);
+  return { total, paid, rate: total > 0 ? Math.round((paid / total) * 100) : 0 };
+}
+
+export async function getAdminDashboardStats() {
+  const db = await getDb();
+  if (!db) return null;
+  const [contentsRow] = await db.select({ count: sql<number>`COUNT(*)` }).from(contents).where(eq(contents.status, 'published'));
+  const [subscribersRow] = await db.select({ count: sql<number>`COUNT(*)` }).from(users);
+  const [activeSubsRow] = await db.select({ count: sql<number>`COUNT(DISTINCT ${subscriptions.userId})` }).from(subscriptions).where(eq(subscriptions.status, 'active'));
+  const [totalViewsRow] = await db.select({ total: sql<number>`SUM(${contentStats.views})` }).from(contentStats);
+  return {
+    publishedContents: Number(contentsRow?.count ?? 0),
+    totalUsers: Number(subscribersRow?.count ?? 0),
+    activeSubscriptions: Number(activeSubsRow?.count ?? 0),
+    totalViews: Number(totalViewsRow?.total ?? 0),
+  };
 }

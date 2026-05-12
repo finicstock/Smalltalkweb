@@ -13,6 +13,7 @@ import Pricing from "./pages/Pricing";
 import SearchPage from "./pages/SearchPage";
 import MyPage from "./pages/MyPage";
 import PreviewPage from "./pages/PreviewPage";
+import AuthorProfile from "./pages/AuthorProfile";
 
 // Admin Pages
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/search" component={SearchPage} />
       <Route path="/mypage" component={MyPage} />
       <Route path="/preview/:token" component={PreviewPage} />
+      <Route path="/author" component={AuthorProfile} />
 
       {/* Admin - Full screen editor (no AdminLayout) */}
       <Route path="/admin/editor/new" component={AdminContentEditor} />
@@ -67,7 +69,7 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider defaultTheme="light" switchable>
         <TooltipProvider>
           <Toaster />
           <Router />

@@ -46,7 +46,7 @@ export const appRouter = router({
       .input(z.object({ slug: z.string() }))
       .query(async ({ input }) => {
         const content = await db.getContentBySlug(input.slug);
-        if (content) await db.incrementViewCount(content.id);
+        // 조회수는 stats.recordView에서 단일 증가 (getBySlug에서는 제거)
         return content ?? null;
       }),
 
@@ -574,5 +574,109 @@ export const appRouter = router({
       }),
   }),
 });
+// ─── Stats Routerr ───────────────────────────────────────────────
+const statsRouter = router({
+  dashboard: adminProcedure.query(async () => {
+    return db.getAdminDashboardStats();
+  }),
+  dailyViews: adminProcedure
+    .input(z.object({ days: z.number().default(30) }))
+    .query(async ({ input }) => {
+      return db.getDailyViewStats(input.days);
+    }),
+  topContents: adminProcedure
+    .input(z.object({ limit: z.number().default(10) }))
+    .query(async ({ input }) => {
+      return db.getTopContents(input.limit);
+    }),
+  conversionRate: adminProcedure.query(async () => {
+    return db.getSubscriptionConversionRate();
+  }),
+  recordView: publicProcedure
+    .input(z.object({ contentId: z.number() }))
+    .mutation(async ({ input }) => {
+      await db.recordContentView(input.contentId);
+      return { success: true };
+    }),
+});
 
-export type AppRouter = typeof appRouter;
+// ─── Newsletter Router ───────────────────────────────────────────
+const newsletterRouter = router({
+  subscribe: publicProcedure
+    .input(z.object({ email: z.string().email(), name: z.string().optional() }))
+    .mutation(async ({ input }) => {
+      await db.subscribeNewsletter(input.email, input.name);
+      return { success: true };
+    }),
+  unsubscribe: publicProcedure
+    .input(z.object({ email: z.string().email() }))
+    .mutation(async ({ input }) => {
+      await db.unsubscribeNewsletter(input.email);
+      return { success: true };
+    }),
+  listSubscribers: adminProcedure.query(async () => {
+    return db.getActiveNewsletterSubscribers();
+  }),
+});
+
+// ─── Author Profile Router ───────────────────────────────────────
+const authorRouter = router({
+  get: publicProcedure.query(async () => {
+    // 오너 ID로 프로필 조회 (OWNER_OPEN_ID 기반)
+    const ownerOpenId = process.env.OWNER_OPEN_ID;
+    if (!ownerOpenId) return null;
+    const { getUserByOpenId } = await import('./db');
+    const owner = await getUserByOpenId(ownerOpenId);
+    if (!owner) return null;
+    return db.getAuthorProfile(owner.id);
+  }),
+  // 공개용 콘텐츠 목록 (비관리자도 접근 가능)
+  publicContents: publicProcedure
+    .input(z.object({ limit: z.number().optional() }))
+    .query(async ({ input }) => {
+      return db.listPublishedContents({ limit: input.limit ?? 6 });
+    }),
+  // 공개용 통계 (비관리자도 접근 가능)
+  publicStats: publicProcedure.query(async () => {
+    return db.getAdminDashboardStats();
+  }),
+  update: adminProcedure
+    .input(z.object({
+      bio: z.string().optional(),
+      twitterUrl: z.string().optional(),
+      instagramUrl: z.string().optional(),
+      websiteUrl: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await db.updateAuthorProfile(ctx.user.id, input);
+      return { success: true };
+    }),
+});
+
+// ─── User Preferences Router ─────────────────────────────────────
+const preferencesRouter = router({
+  get: protectedProcedure.query(async ({ ctx }) => {
+    return db.getUserPreference(ctx.user.id);
+  }),
+  setTheme: protectedProcedure
+    .input(z.object({ theme: z.enum(['light', 'dark', 'auto']) }))
+    .mutation(async ({ ctx, input }) => {
+      await db.updateUserPreference(ctx.user.id, input.theme);
+      return { success: true };
+    }),
+  getPublicTheme: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.user) return null;
+    return db.getUserPreference(ctx.user.id);
+  }),
+});
+
+/// Extended router with all sub-routers
+export const extendedRouter = router({
+  ...appRouter._def.record,
+  stats: statsRouter,
+  newsletter: newsletterRouter,
+  author: authorRouter,
+  preferences: preferencesRouter,
+});
+
+export type AppRouter = typeof extendedRouter;

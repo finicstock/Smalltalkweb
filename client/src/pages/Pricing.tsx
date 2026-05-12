@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
-import { Check, Zap, Crown, Shield, BarChart3, Mail, MessageCircle, Star } from "lucide-react";
+import { Check, Zap, Crown, Shield, BarChart3, Star } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -32,9 +32,7 @@ export default function Pricing() {
       return;
     }
     // PG 연동 전: 안내 메시지
-    toast.info("결제 시스템 준비 중입니다. 곧 서비스가 시작됩니다.", {
-      description: "문의사항은 채팅 상담을 이용해 주세요.",
-    });
+    toast.info("결제 시스템 준비 중입니다. 곧 서비스가 시작됩니다.");
   };
 
   return (
@@ -63,8 +61,8 @@ export default function Pricing() {
             {[
               { icon: <BarChart3 className="h-6 w-6" />, title: "심층 분석 리포트", desc: "매주 발행되는 시장 심층 분석 리포트를 받아보세요." },
               { icon: <Crown className="h-6 w-6" />, title: "프리미엄 콘텐츠", desc: "유료 전용 아티클과 영상 콘텐츠를 무제한 열람하세요." },
-              { icon: <Mail className="h-6 w-6" />, title: "이메일 뉴스레터", desc: "핵심 투자 인사이트를 이메일로 직접 받아보세요." },
-              { icon: <MessageCircle className="h-6 w-6" />, title: "1:1 채팅 상담", desc: "궁금한 점은 채팅 고객센터를 통해 문의하세요." },
+              { icon: <Shield className="h-6 w-6" />, title: "텔레그램 커뮤니티", desc: "구독자 전용 텔레그램 채널에서 실시간 토론에 참여하세요." },
+              { icon: <Star className="h-6 w-6" />, title: "독립적 시각", desc: "특정 종목 추천이 아닌, 객관적이고 독립적인 분석을 제공합니다." },
             ].map((item, i) => (
               <Card key={i} className="border-0 shadow-sm">
                 <CardContent className="p-6 text-center space-y-3">
@@ -117,7 +115,7 @@ export default function Pricing() {
                   <span className="text-muted-foreground ml-1">원</span>
                 </div>
                 <ul className="space-y-3">
-                  {["무료 공개 콘텐츠 열람", "뉴스레터 구독", "채팅 문의"].map((f) => (
+                  {["무료 공개 콘텐츠 열람", "콘텐츠 검색"].map((f) => (
                     <li key={f} className="flex items-center gap-2.5 text-sm text-muted-foreground">
                       <Check className="h-4 w-4 text-primary shrink-0" /> {f}
                     </li>
@@ -163,8 +161,7 @@ export default function Pricing() {
                   {[
                     "모든 프리미엄 콘텐츠 무제한 열람",
                     "주간 심층 분석 리포트",
-                    "이메일 뉴스레터",
-                    "1:1 채팅 상담 우선 응대",
+                    "텔레그램 커뮤니티 입장권",
                     selectedCycle === "yearly" ? "연간 구독자 전용 콘텐츠" : null,
                   ].filter(Boolean).map((f) => (
                     <li key={f} className="flex items-center gap-2.5 text-sm text-muted-foreground">

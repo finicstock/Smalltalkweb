@@ -27,7 +27,8 @@ import {
   AlignRight, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code,
   Lock, ChevronRight, X, Upload, Undo2, Redo2, Indent, Outdent,
   Table as TableIcon, Youtube as YoutubeIcon, Paperclip, Type, Palette,
-  Highlighter, ChevronDown, Plus, Trash2
+  Highlighter, ChevronDown, Plus, Trash2, Maximize2, Minimize2, FileText,
+  Clock, History, Share2, BookTemplate, CircleDot, Square, Triangle, Hash
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { usePersistFn } from "@/hooks/usePersistFn";
@@ -93,6 +94,10 @@ export default function AdminContentEditor() {
     onSuccess: () => { try { localStorage.removeItem(`autosave-edit-${editId}`); } catch(e) {} utils.admin.listContents.invalidate(); toast.success("콘텐츠가 수정되었습니다."); navigate("/admin/contents"); },
     onError: (err) => toast.error(err.message || "콘텐츠 수정에 실패했습니다."),
   });
+  const generatePreviewToken = trpc.admin.generatePreviewToken.useMutation({
+    onSuccess: (data) => { setPreviewToken(data.token); toast.success("미리보기 링크가 생성되었습니다."); },
+    onError: () => toast.error("미리보기 링크 생성 실패"),
+  });
 
   // ─── State ───────────────────────────
   const [step, setStep] = useState<EditorStep>(editId ? "edit" : "type");
@@ -119,6 +124,15 @@ export default function AdminContentEditor() {
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showSeoPanel, setShowSeoPanel] = useState(false);
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
+  const [ogImageUrl, setOgImageUrl] = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showBulletStyle, setShowBulletStyle] = useState(false);
+  const [previewToken, setPreviewToken] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
@@ -163,6 +177,33 @@ export default function AdminContentEditor() {
     editorProps: {
       attributes: {
         class: "prose prose-lg max-w-none focus:outline-none min-h-[400px] px-0 py-4",
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (!moved && event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]) {
+          const file = event.dataTransfer.files[0];
+          if (file.type.startsWith("image/")) {
+            event.preventDefault();
+            uploadImage(file);
+            return true;
+          }
+        }
+        return false;
+      },
+      handlePaste: (view, event) => {
+        const items = event.clipboardData?.items;
+        if (items) {
+          for (let i = 0; i < items.length; i++) {
+            if (items[i].type.startsWith("image/")) {
+              const file = items[i].getAsFile();
+              if (file) {
+                event.preventDefault();
+                uploadImage(file);
+                return true;
+              }
+            }
+          }
+        }
+        return false;
       },
     },
   });
@@ -598,6 +639,9 @@ export default function AdminContentEditor() {
       categoryId: categoryId && categoryId !== "none" ? parseInt(categoryId) : undefined,
       tags: tags || undefined,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+      seoTitle: seoTitle || undefined,
+      seoDescription: seoDescription || undefined,
+      ogImageUrl: ogImageUrl || undefined,
     };
 
     if (editId) {
@@ -651,9 +695,9 @@ export default function AdminContentEditor() {
     );
   }
 
-  // ─── STEP 2 & 3: Editor + Publish Panel ───────────────────────────
+   // ─── STEP 2 & 3: Editor + Publish Panel ───────────────────────
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className={`min-h-screen bg-white flex flex-col ${isFullscreen ? 'fixed inset-0 z-[100]' : ''}`}>
       {/* Top Bar */}
       <div className="border-b border-gray-200 bg-white sticky top-0 z-20">
         <div className="max-w-[1200px] mx-auto px-6 h-14 flex items-center justify-between">
@@ -662,6 +706,13 @@ export default function AdminContentEditor() {
           </button>
 
           <div className="flex items-center gap-2">
+            {/* Word count & reading time */}
+            {editor && (
+              <span className="text-[11px] text-gray-400 hidden sm:inline">
+                {editor.storage.characterCount?.characters?.() ?? editor.state.doc.textContent.length}자
+                · 약 {Math.max(1, Math.ceil((editor.state.doc.textContent.length) / 500))}분
+              </span>
+            )}
             {/* Auto-save indicator */}
             {isAutoSaving && (
               <span className="text-xs text-muted-foreground animate-pulse">자동 저장 중...</span>
@@ -675,10 +726,39 @@ export default function AdminContentEditor() {
               variant="ghost"
               size="sm"
               className="text-[13px] gap-1.5"
+              onClick={() => setIsFullscreen(!isFullscreen)}
+              title={isFullscreen ? "전체화면 해제" : "전체화면"}
+            >
+              {isFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-[13px] gap-1.5"
               onClick={() => setShowShortcuts(true)}
               title="단축키 안내"
             >
               <Code className="h-3.5 w-3.5" />
+            </Button>
+            {editId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-[13px] gap-1.5"
+                onClick={() => setShowVersionHistory(true)}
+                title="버전 히스토리"
+              >
+                <History className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-[13px] gap-1.5"
+              onClick={() => setShowTemplates(true)}
+              title="템플릿"
+            >
+              <FileText className="h-3.5 w-3.5" />
             </Button>
             <Button
               variant="outline"
@@ -964,6 +1044,33 @@ export default function AdminContentEditor() {
                 {/* Lists & Indent */}
                 <ToolbarButton icon={List} label="목록" onClick={() => editor?.chain().focus().toggleBulletList().run()} active={editor?.isActive("bulletList")} />
                 <ToolbarButton icon={ListOrdered} label="번호목록" onClick={() => editor?.chain().focus().toggleOrderedList().run()} active={editor?.isActive("orderedList")} />
+                {/* Bullet Style */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowBulletStyle(!showBulletStyle); setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); }}
+                    title="글머리 스타일"
+                    className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    <CircleDot className="h-3.5 w-3.5" />
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showBulletStyle && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 w-40">
+                      <button onClick={() => { editor?.chain().focus().toggleBulletList().run(); setShowBulletStyle(false); }} className="w-full text-left px-3 py-2 text-[12px] hover:bg-gray-100 flex items-center gap-2">
+                        <CircleDot className="h-3.5 w-3.5" /> ● 원형 (기본)
+                      </button>
+                      <button onClick={() => { editor?.chain().focus().toggleBulletList().run(); setShowBulletStyle(false); }} className="w-full text-left px-3 py-2 text-[12px] hover:bg-gray-100 flex items-center gap-2">
+                        <Square className="h-3.5 w-3.5" /> ■ 사각형
+                      </button>
+                      <button onClick={() => { editor?.chain().focus().toggleBulletList().run(); setShowBulletStyle(false); }} className="w-full text-left px-3 py-2 text-[12px] hover:bg-gray-100 flex items-center gap-2">
+                        <Triangle className="h-3.5 w-3.5" /> ▶ 삼각형
+                      </button>
+                      <button onClick={() => { editor?.chain().focus().toggleBulletList().run(); setShowBulletStyle(false); }} className="w-full text-left px-3 py-2 text-[12px] hover:bg-gray-100 flex items-center gap-2">
+                        <Minus className="h-3.5 w-3.5" /> — 대시
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <ToolbarButton icon={Indent} label="들여쓰기" onClick={handleIndent} />
                 <ToolbarButton icon={Outdent} label="내어쓰기" onClick={handleOutdent} />
                 <ToolbarSeparator />
@@ -976,6 +1083,21 @@ export default function AdminContentEditor() {
 
                 {/* Media & Insert */}
                 <ToolbarButton icon={ImageIcon} label="이미지" onClick={handleImageSelect} />
+                <button
+                  onClick={() => {
+                    if (!editor) return;
+                    const caption = window.prompt("측션 텍스트를 입력하세요:");
+                    if (caption) {
+                      editor.chain().focus().insertContent(
+                        `<figure class="image-caption"><figcaption>${caption}</figcaption></figure>`
+                      ).run();
+                    }
+                  }}
+                  title="이미지 측션"
+                  className="px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 text-[11px] font-medium"
+                >
+                  Aa
+                </button>
                 <ToolbarButton icon={YoutubeIcon} label="YouTube" onClick={insertYoutube} />
                 <ToolbarButton icon={TableIcon} label="표 삽입" onClick={insertTable} />
                 <ToolbarButton icon={LinkIcon} label="링크" onClick={insertLink} active={editor?.isActive("link")} />
@@ -1168,6 +1290,66 @@ export default function AdminContentEditor() {
                   )}
                 </div>
 
+                {/* SEO Meta */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[13px] text-gray-700">SEO 설정</Label>
+                    <button onClick={() => setShowSeoPanel(!showSeoPanel)} className="text-[11px] text-blue-600 hover:underline">
+                      {showSeoPanel ? '접기' : '펼치기'}
+                    </button>
+                  </div>
+                  {showSeoPanel && (
+                    <div className="space-y-2 p-3 bg-white border border-gray-200 rounded-lg">
+                      <div>
+                        <label className="text-[11px] text-gray-500 block mb-1">검색 제목 (meta title)</label>
+                        <Input
+                          value={seoTitle}
+                          onChange={(e) => setSeoTitle(e.target.value)}
+                          placeholder={title || "제목과 동일"}
+                          className="text-[12px] h-8"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-gray-500 block mb-1">검색 설명 (meta description)</label>
+                        <Textarea
+                          value={seoDescription}
+                          onChange={(e) => setSeoDescription(e.target.value)}
+                          placeholder={excerpt || "요약문과 동일"}
+                          rows={2}
+                          className="text-[12px] resize-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-gray-500 block mb-1">OG 이미지 URL</label>
+                        <Input
+                          value={ogImageUrl}
+                          onChange={(e) => setOgImageUrl(e.target.value)}
+                          placeholder={thumbnailUrl || "썸네일과 동일"}
+                          className="text-[12px] h-8"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Preview Link */}
+                {editId && (
+                  <div className="space-y-1.5">
+                    <Label className="text-[13px] text-gray-700">미리보기 링크</Label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-[12px]"
+                      onClick={() => {
+                        if (editId) generatePreviewToken.mutate({ contentId: editId });
+                      }}
+                      disabled={generatePreviewToken.isPending}
+                    >
+                      <Share2 className="h-3.5 w-3.5 mr-1.5" /> {generatePreviewToken.isPending ? '생성 중...' : '미리보기 링크 생성'}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Scheduled Publish */}
                 <div className="space-y-1.5">
                   <Label className="text-[13px] text-gray-700">예약 발행</Label>
@@ -1304,6 +1486,48 @@ export default function AdminContentEditor() {
             <div className="border-t border-gray-100 px-6 py-3">
               <p className="text-xs text-gray-400 text-center">Mac에서는 Ctrl 대신 ⌘(Cmd)를 사용하세요</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Version History Modal */}
+      {showVersionHistory && editId && (
+        <VersionHistoryModal contentId={editId} onClose={() => setShowVersionHistory(false)} onRestore={(body) => { if (editor) editor.commands.setContent(body); setShowVersionHistory(false); toast.success("선택한 버전으로 복원했습니다."); }} />
+      )}
+
+      {/* Templates Modal */}
+      {showTemplates && (
+        <TemplatesModal onClose={() => setShowTemplates(false)} onInsert={(body) => { if (editor) editor.commands.setContent(body); setShowTemplates(false); toast.success("템플릿이 적용되었습니다."); }} currentBody={editor?.getHTML() || ""} currentTitle={title} />
+      )}
+
+      {/* Preview Link Modal */}
+      {previewToken && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">미리보기 링크</h2>
+              <button onClick={() => setPreviewToken(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">이 링크를 공유하면 발행 전에도 콘텐츠를 미리 확인할 수 있습니다.</p>
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={`${window.location.origin}/preview/${previewToken}`}
+                className="text-[12px] bg-gray-50"
+              />
+              <Button
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/preview/${previewToken}`);
+                  toast.success("링크가 복사되었습니다.");
+                }}
+              >
+                복사
+              </Button>
+            </div>
+            <p className="text-[11px] text-gray-400 mt-2">* 이 링크는 48시간 동안 유효합니다.</p>
           </div>
         </div>
       )}
@@ -1491,4 +1715,96 @@ function htmlToMarkdown(html: string): string {
   // Decode HTML entities
   md = md.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
   return md;
+}
+
+// ─── Version History Modal ───────────────────────
+function VersionHistoryModal({ contentId, onClose, onRestore }: { contentId: number; onClose: () => void; onRestore: (body: string) => void }) {
+  const { data: versions, isLoading } = trpc.admin.listVersions.useQuery({ contentId });
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><History className="h-5 w-5" /> 버전 히스토리</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="h-5 w-5 text-gray-500" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {isLoading && <p className="text-sm text-gray-500 text-center py-8">로딩 중...</p>}
+          {!isLoading && (!versions || versions.length === 0) && (
+            <p className="text-sm text-gray-500 text-center py-8">저장된 버전이 없습니다.<br />글을 수정하면 자동으로 버전이 저장됩니다.</p>
+          )}
+          {versions?.map((v: any) => (
+            <div key={v.id} className="border border-gray-200 rounded-lg p-3 mb-2 hover:bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{v.versionTitle || '제목 없음'}</p>
+                  <p className="text-[11px] text-gray-400">{new Date(v.createdAt).toLocaleString('ko-KR')}</p>
+                </div>
+                <Button size="sm" variant="outline" className="text-[11px]" onClick={() => onRestore(v.body)}>
+                  복원
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Templates Modal ───────────────────────
+function TemplatesModal({ onClose, onInsert, currentBody, currentTitle }: { onClose: () => void; onInsert: (body: string) => void; currentBody: string; currentTitle: string }) {
+  const { data: templates, isLoading } = trpc.admin.listTemplates.useQuery();
+  const utils = trpc.useUtils();
+  const createTemplate = trpc.admin.createTemplate.useMutation({
+    onSuccess: () => { utils.admin.listTemplates.invalidate(); toast.success("템플릿이 저장되었습니다."); },
+    onError: (err: any) => toast.error(err.message || "템플릿 저장 실패"),
+  });
+  const deleteTemplate = trpc.admin.deleteTemplate.useMutation({
+    onSuccess: () => { utils.admin.listTemplates.invalidate(); toast.success("템플릿이 삭제되었습니다."); },
+  });
+
+  const handleSaveAsTemplate = () => {
+    const name = window.prompt("템플릿 이름을 입력하세요:", currentTitle || "내 템플릿");
+    if (!name) return;
+    createTemplate.mutate({ name, content: currentBody });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+        <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><FileText className="h-5 w-5" /> 템플릿</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="h-5 w-5 text-gray-500" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <Button variant="outline" className="w-full mb-4 text-[13px]" onClick={handleSaveAsTemplate}>
+            <Plus className="h-3.5 w-3.5 mr-1.5" /> 현재 글을 템플릿으로 저장
+          </Button>
+          {isLoading && <p className="text-sm text-gray-500 text-center py-8">로딩 중...</p>}
+          {!isLoading && (!templates || templates.length === 0) && (
+            <p className="text-sm text-gray-500 text-center py-8">저장된 템플릿이 없습니다.<br />현재 글을 템플릿으로 저장해보세요.</p>
+          )}
+          {templates?.map((t: any) => (
+            <div key={t.id} className="border border-gray-200 rounded-lg p-3 mb-2 hover:bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{t.name}</p>
+                  <p className="text-[11px] text-gray-400">{new Date(t.createdAt).toLocaleString('ko-KR')}</p>
+                </div>
+                <div className="flex gap-1">
+                  <Button size="sm" className="text-[11px]" onClick={() => onInsert(t.content)}>
+                    적용
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-[11px] text-red-500 hover:text-red-700" onClick={() => deleteTemplate.mutate({ id: t.id })}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }

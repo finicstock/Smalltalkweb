@@ -10,6 +10,8 @@ import {
   telegramSettings, InsertTelegramSetting,
   playlists, InsertPlaylist,
   playlistContents, InsertPlaylistContent,
+  contentVersions, InsertContentVersion,
+  contentTemplates, InsertContentTemplate,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -361,4 +363,65 @@ export async function getDashboardStats() {
     contents: c[0]?.count ?? 0,
     activeSubscriptions: as_[0]?.count ?? 0,
   };
+}
+
+// ─── Content Versions ─────────────────────────────
+export async function createContentVersion(data: { contentId: number; title: string; body?: string | null; excerpt?: string | null }) {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select({ count: count() }).from(contentVersions).where(eq(contentVersions.contentId, data.contentId));
+  const versionNumber = (existing[0]?.count ?? 0) + 1;
+  await db.insert(contentVersions).values({ ...data, body: data.body ?? undefined, excerpt: data.excerpt ?? undefined, versionNumber });
+}
+
+export async function listContentVersions(contentId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(contentVersions).where(eq(contentVersions.contentId, contentId)).orderBy(desc(contentVersions.versionNumber));
+}
+
+export async function getContentVersion(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const r = await db.select().from(contentVersions).where(eq(contentVersions.id, id)).limit(1);
+  return r[0];
+}
+
+// ─── Content Templates ─────────────────────────────
+export async function listTemplates() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(contentTemplates).orderBy(asc(contentTemplates.sortOrder));
+}
+
+export async function createTemplate(data: { name: string; content: string; category?: string; sortOrder?: number }) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(contentTemplates).values(data);
+}
+
+export async function updateTemplate(id: number, data: { name?: string; content?: string; category?: string; sortOrder?: number }) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(contentTemplates).set(data).where(eq(contentTemplates.id, id));
+}
+
+export async function deleteTemplate(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(contentTemplates).where(eq(contentTemplates.id, id));
+}
+
+// ─── Preview Token ─────────────────────────────
+export async function setPreviewToken(contentId: number, token: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(contents).set({ previewToken: token }).where(eq(contents.id, contentId));
+}
+
+export async function getContentByPreviewToken(token: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const r = await db.select().from(contents).where(eq(contents.previewToken, token)).limit(1);
+  return r[0];
 }

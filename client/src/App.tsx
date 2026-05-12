@@ -12,6 +12,7 @@ import ContentDetail from "./pages/ContentDetail";
 import Pricing from "./pages/Pricing";
 import SearchPage from "./pages/SearchPage";
 import MyPage from "./pages/MyPage";
+import PreviewPage from "./pages/PreviewPage";
 
 // Admin Pages
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/pricing" component={Pricing} />
       <Route path="/search" component={SearchPage} />
       <Route path="/mypage" component={MyPage} />
+      <Route path="/preview/:token" component={PreviewPage} />
 
       {/* Admin - Full screen editor (no AdminLayout) */}
       <Route path="/admin/editor/new" component={AdminContentEditor} />

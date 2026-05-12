@@ -49,6 +49,13 @@ export const appRouter = router({
         if (content) await db.incrementViewCount(content.id);
         return content ?? null;
       }),
+
+    getByPreviewToken: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const content = await db.getContentByPreviewToken(input.token);
+        return content ?? null;
+      }),
   }),
 
   // ─── Categories (public) ──────────────────────────
@@ -280,6 +287,9 @@ export const appRouter = router({
         tags: z.string().nullable().optional(),
         publishedAt: z.date().nullable().optional(),
         scheduledAt: z.date().nullable().optional(),
+        metaTitle: z.string().nullable().optional(),
+        metaDescription: z.string().nullable().optional(),
+        ogImageUrl: z.string().nullable().optional(),
       }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
@@ -288,6 +298,13 @@ export const appRouter = router({
           (data as any).status = "draft";
         } else if (data.status === "published" && !data.publishedAt) {
           (data as any).publishedAt = new Date();
+        }
+        // Save version history before updating (only if body or title changed)
+        if (data.title || data.body) {
+          const existing = await db.getContentById(id);
+          if (existing) {
+            await db.createContentVersion({ contentId: id, title: existing.title, body: existing.body, excerpt: existing.excerpt });
+          }
         }
         await db.updateContent(id, data as any);
         return { success: true };
@@ -505,6 +522,55 @@ export const appRouter = router({
       .input(z.object({ userId: z.number().optional(), limit: z.number().optional(), offset: z.number().optional() }).optional())
       .query(async ({ input }) => {
         return db.listPayments(input ?? {});
+      }),
+
+    // ─── Version History ─────────────────────────────
+    listVersions: adminProcedure
+      .input(z.object({ contentId: z.number() }))
+      .query(async ({ input }) => {
+        return db.listContentVersions(input.contentId);
+      }),
+
+    getVersion: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        return db.getContentVersion(input.id) ?? null;
+      }),
+
+    // ─── Preview Token ─────────────────────────────
+    generatePreviewToken: adminProcedure
+      .input(z.object({ contentId: z.number() }))
+      .mutation(async ({ input }) => {
+        const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+        await db.setPreviewToken(input.contentId, token);
+        return { token };
+      }),
+
+    // ─── Templates ─────────────────────────────
+    listTemplates: adminProcedure.query(async () => {
+      return db.listTemplates();
+    }),
+
+    createTemplate: adminProcedure
+      .input(z.object({ name: z.string(), content: z.string(), category: z.string().optional(), sortOrder: z.number().optional() }))
+      .mutation(async ({ input }) => {
+        await db.createTemplate(input);
+        return { success: true };
+      }),
+
+    updateTemplate: adminProcedure
+      .input(z.object({ id: z.number(), name: z.string().optional(), content: z.string().optional(), category: z.string().optional(), sortOrder: z.number().optional() }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await db.updateTemplate(id, data);
+        return { success: true };
+      }),
+
+    deleteTemplate: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.deleteTemplate(input.id);
+        return { success: true };
       }),
   }),
 });

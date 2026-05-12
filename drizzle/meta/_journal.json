@@ -36,6 +36,13 @@
       "when": 1778565131112,
       "tag": "0004_salty_red_wolf",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1778571402560,
+      "tag": "0005_gifted_chameleon",
+      "breakpoints": true
     }
   ]
 }

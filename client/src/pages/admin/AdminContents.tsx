@@ -5,8 +5,11 @@ import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Trash2, Eye, Lock, Globe, Search, PenSquare, Copy } from "lucide-react";
+import { Pencil, Trash2, Eye, Lock, Globe, Search, PenSquare, Copy, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { useState, useMemo } from "react";
+
+type SortField = "date" | "title" | "views";
+type SortDir = "asc" | "desc";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 
@@ -26,20 +29,39 @@ export default function AdminContents() {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [, navigate] = useLocation();
+  const { data: categories } = trpc.admin.listCategories.useQuery();
 
   const filteredContents = useMemo(() => {
     if (!contents) return [];
-    let filtered = contents;
+    let filtered = [...contents];
     if (statusFilter !== "all") {
       filtered = filtered.filter((c) => c.status === statusFilter);
+    }
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter((c) => c.categoryId?.toString() === categoryFilter);
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((c) => c.title.toLowerCase().includes(q));
     }
+    // Sort
+    filtered.sort((a, b) => {
+      let cmp = 0;
+      if (sortField === "date") {
+        cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      } else if (sortField === "title") {
+        cmp = a.title.localeCompare(b.title, "ko");
+      } else if (sortField === "views") {
+        cmp = (a.viewCount ?? 0) - (b.viewCount ?? 0);
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
     return filtered;
-  }, [contents, statusFilter, searchQuery]);
+  }, [contents, statusFilter, searchQuery, sortField, sortDir, categoryFilter]);
 
   const statusCounts = useMemo(() => {
     if (!contents) return { all: 0, published: 0, draft: 0, archived: 0 };
@@ -86,14 +108,44 @@ export default function AdminContents() {
           </TabsList>
         </Tabs>
 
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-          <Input
-            placeholder="제목 검색"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 h-8 text-[13px] w-full sm:w-52 bg-white border-gray-200"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+            <Input
+              placeholder="제목 검색"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 text-[13px] w-full sm:w-52 bg-white border-gray-200"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="h-8 text-[12px] border border-gray-200 rounded-md px-2 bg-white text-gray-700"
+            >
+              <option value="all">전체 카테고리</option>
+              {categories?.map((cat) => (
+                <option key={cat.id} value={cat.id.toString()}>{cat.name}</option>
+              ))}
+            </select>
+            <select
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value as SortField)}
+              className="h-8 text-[12px] border border-gray-200 rounded-md px-2 bg-white text-gray-700"
+            >
+              <option value="date">날짜순</option>
+              <option value="title">제목순</option>
+              <option value="views">조회수순</option>
+            </select>
+            <button
+              onClick={() => setSortDir(sortDir === "asc" ? "desc" : "asc")}
+              className="h-8 w-8 flex items-center justify-center border border-gray-200 rounded-md hover:bg-gray-50"
+              title={sortDir === "asc" ? "오름차순" : "내림차순"}
+            >
+              {sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5 text-gray-600" /> : <ArrowDown className="h-3.5 w-3.5 text-gray-600" />}
+            </button>
+          </div>
         </div>
       </div>
 

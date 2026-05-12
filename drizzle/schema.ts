@@ -49,6 +49,10 @@ export const contents = mysqlTable("contents", {
   viewCount: int("viewCount").default(0).notNull(),
   scheduledAt: timestamp("scheduledAt"),
   publishedAt: timestamp("publishedAt"),
+  metaTitle: varchar("metaTitle", { length: 200 }),
+  metaDescription: text("metaDescription"),
+  ogImageUrl: text("ogImageUrl"),
+  previewToken: varchar("previewToken", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -150,3 +154,31 @@ export const playlistContents = mysqlTable("playlist_contents", {
 });
 export type PlaylistContent = typeof playlistContents.$inferSelect;
 export type InsertPlaylistContent = typeof playlistContents.$inferInsert;
+/**
+ * Content version history
+ */
+export const contentVersions = mysqlTable("content_versions", {
+  id: int("id").autoincrement().primaryKey(),
+  contentId: int("contentId").notNull(),
+  title: varchar("title", { length: 500 }).notNull(),
+  body: text("body"),
+  excerpt: text("excerpt"),
+  versionNumber: int("versionNumber").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ContentVersion = typeof contentVersions.$inferSelect;
+export type InsertContentVersion = typeof contentVersions.$inferInsert;
+/**
+ * Text templates for quick insertion
+ */
+export const contentTemplates = mysqlTable("content_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 200 }).notNull(),
+  content: text("content").notNull(),
+  category: varchar("category", { length: 100 }),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type ContentTemplate = typeof contentTemplates.$inferSelect;
+export type InsertContentTemplate = typeof contentTemplates.$inferInsert;

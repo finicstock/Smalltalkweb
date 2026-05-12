@@ -300,6 +300,29 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    duplicateContent: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        const original = await db.getContentById(input.id);
+        if (!original) throw new Error("콘텐츠를 찾을 수 없습니다.");
+        const newSlug = `${original.slug}-copy-${Date.now()}`;
+        await db.createContent({
+          title: `${original.title} (복사본)`,
+          slug: newSlug,
+          excerpt: original.excerpt ?? undefined,
+          body: original.body ?? undefined,
+          thumbnailUrl: original.thumbnailUrl ?? undefined,
+          contentType: original.contentType,
+          videoUrl: original.videoUrl ?? undefined,
+          accessLevel: original.accessLevel,
+          status: "draft",
+          categoryId: original.categoryId ?? undefined,
+          tags: (original as any).tags ?? undefined,
+          scheduledAt: null,
+        });
+        return { success: true };
+      }),
+
     // Category CRUD
     listCategories: adminProcedure.query(async () => {
       return db.listCategories();

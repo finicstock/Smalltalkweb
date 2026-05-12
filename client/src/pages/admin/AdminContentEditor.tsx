@@ -117,6 +117,8 @@ export default function AdminContentEditor() {
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
@@ -670,6 +672,23 @@ export default function AdminContentEditor() {
               </span>
             )}
             <Button
+              variant="ghost"
+              size="sm"
+              className="text-[13px] gap-1.5"
+              onClick={() => setShowShortcuts(true)}
+              title="단축키 안내"
+            >
+              <Code className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[13px] gap-1.5"
+              onClick={() => setShowPreview(true)}
+            >
+              <Eye className="h-3.5 w-3.5" /> 미리보기
+            </Button>
+            <Button
               variant="outline"
               size="sm"
               className="text-[13px] gap-1.5"
@@ -786,15 +805,30 @@ export default function AdminContentEditor() {
                     <ChevronDown className="h-3 w-3" />
                   </button>
                   {showColorPicker && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50">
-                      <p className="text-[11px] text-gray-500 mb-1.5 px-1">글자색</p>
-                      <div className="grid grid-cols-6 gap-1">
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-50 min-w-[200px]">
+                      <p className="text-[11px] text-gray-500 mb-2 px-1 font-medium">자주 사용하는 색</p>
+                      <div className="flex gap-2 mb-3 pb-3 border-b border-gray-100">
+                        <button
+                          onClick={() => setTextColor("#e74c3c")}
+                          title="빨간색"
+                          className="w-10 h-10 rounded-lg border-2 border-red-200 hover:scale-110 transition-transform shadow-sm"
+                          style={{ backgroundColor: "#e74c3c" }}
+                        />
+                        <button
+                          onClick={() => setTextColor("#2c3e50")}
+                          title="남색"
+                          className="w-10 h-10 rounded-lg border-2 border-slate-200 hover:scale-110 transition-transform shadow-sm"
+                          style={{ backgroundColor: "#2c3e50" }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-gray-500 mb-2 px-1 font-medium">전체 색상</p>
+                      <div className="grid grid-cols-6 gap-2">
                         {TEXT_COLORS.map((c) => (
                           <button
                             key={c.value}
                             onClick={() => setTextColor(c.value)}
                             title={c.label}
-                            className="w-6 h-6 rounded border border-gray-200 hover:scale-110 transition-transform"
+                            className="w-7 h-7 rounded-md border border-gray-200 hover:scale-110 transition-transform"
                             style={{ backgroundColor: c.value === "default" ? "#1a1a1a" : c.value }}
                           />
                         ))}
@@ -814,15 +848,31 @@ export default function AdminContentEditor() {
                     <ChevronDown className="h-3 w-3" />
                   </button>
                   {showHighlightPicker && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50">
-                      <p className="text-[11px] text-gray-500 mb-1.5 px-1">배경색</p>
-                      <div className="grid grid-cols-6 gap-1">
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-50 min-w-[200px]">
+                      <p className="text-[11px] text-gray-500 mb-2 px-1 font-medium">자주 사용하는 색</p>
+                      <div className="flex gap-2 mb-3 pb-3 border-b border-gray-100">
+                        <button
+                          onClick={() => setHighlightColor("#fef08a")}
+                          title="노란색"
+                          className="w-10 h-10 rounded-lg border-2 border-yellow-300 hover:scale-110 transition-transform shadow-sm"
+                          style={{ backgroundColor: "#fef08a" }}
+                        />
+                        <button
+                          onClick={() => setHighlightColor("none")}
+                          title="없음"
+                          className="w-10 h-10 rounded-lg border-2 border-gray-200 hover:scale-110 transition-transform shadow-sm bg-white flex items-center justify-center"
+                        >
+                          <X className="h-4 w-4 text-gray-400" />
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mb-2 px-1 font-medium">전체 색상</p>
+                      <div className="grid grid-cols-6 gap-2">
                         {HIGHLIGHT_COLORS.map((c) => (
                           <button
                             key={c.value}
                             onClick={() => setHighlightColor(c.value)}
                             title={c.label}
-                            className="w-6 h-6 rounded border border-gray-200 hover:scale-110 transition-transform"
+                            className="w-7 h-7 rounded-md border border-gray-200 hover:scale-110 transition-transform"
                             style={{ backgroundColor: c.value === "none" ? "#ffffff" : c.value }}
                           >
                             {c.value === "none" && <X className="h-3 w-3 mx-auto text-gray-400" />}
@@ -1186,6 +1236,77 @@ export default function AdminContentEditor() {
           onClick={() => { setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); setShowLineHeight(false); setShowLetterSpacing(false); }}
         />
       )}
+
+      {/* Preview Modal */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center overflow-y-auto py-8">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 my-4">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-xl">
+              <div className="flex items-center gap-3">
+                <Eye className="h-5 w-5 text-gray-600" />
+                <h2 className="text-lg font-semibold text-gray-900">미리보기</h2>
+                {accessLevel === "paid" && (
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">유료</span>
+                )}
+              </div>
+              <button onClick={() => setShowPreview(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="px-6 py-8">
+              {thumbnailUrl && (
+                <div className="mb-6 rounded-lg overflow-hidden">
+                  <img src={thumbnailUrl} alt="썸네일" className="w-full h-48 object-cover" />
+                </div>
+              )}
+              <h1 className="text-3xl font-bold text-gray-900 mb-3">{title || "제목 없음"}</h1>
+              {excerpt && <p className="text-gray-500 text-base mb-6">{excerpt}</p>}
+              <div className="flex items-center gap-3 text-sm text-gray-400 mb-8 pb-6 border-b border-gray-100">
+                <span>닉스의 스몰톡</span>
+                <span>·</span>
+                <span>{new Date().toLocaleDateString("ko-KR")}</span>
+                {tags && (
+                  <>
+                    <span>·</span>
+                    <span>{tags.split(",").map(t => `#${t.trim()}`).join(" ")}</span>
+                  </>
+                )}
+              </div>
+              <div
+                className="content-body prose prose-lg max-w-none"
+                dangerouslySetInnerHTML={{ __html: editor?.getHTML() || "" }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shortcuts Modal */}
+      {showShortcuts && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+            <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">⌨️ 단축키 안내</h2>
+              <button onClick={() => setShowShortcuts(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
+              <div className="space-y-1">
+                {SHORTCUTS.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 px-2 rounded hover:bg-gray-50">
+                    <span className="text-sm text-gray-700">{s.label}</span>
+                    <kbd className="text-xs bg-gray-100 border border-gray-200 rounded px-2 py-1 font-mono text-gray-600">{s.keys}</kbd>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="border-t border-gray-100 px-6 py-3">
+              <p className="text-xs text-gray-400 text-center">Mac에서는 Ctrl 대신 ⌘(Cmd)를 사용하세요</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1220,8 +1341,31 @@ const HIGHLIGHT_COLORS = [
   { label: "연파랑", value: "#dbeafe" },
   { label: "연분홍", value: "#ffe4e6" },
 ];
+const SHORTCUTS = [
+  { label: "굵게", keys: "Ctrl + B" },
+  { label: "기울임", keys: "Ctrl + I" },
+  { label: "밑줄", keys: "Ctrl + U" },
+  { label: "취소선", keys: "Ctrl + Shift + S" },
+  { label: "제목 1", keys: "Ctrl + Alt + 1" },
+  { label: "제목 2", keys: "Ctrl + Alt + 2" },
+  { label: "제목 3", keys: "Ctrl + Alt + 3" },
+  { label: "단락", keys: "Ctrl + Alt + 0" },
+  { label: "불릿 목록", keys: "Ctrl + Shift + 8" },
+  { label: "번호 목록", keys: "Ctrl + Shift + 7" },
+  { label: "인용문", keys: "Ctrl + Shift + B" },
+  { label: "코드 블록", keys: "Ctrl + Alt + C" },
+  { label: "구분선", keys: "Ctrl + Shift + -" },
+  { label: "링크 삽입", keys: "Ctrl + K" },
+  { label: "실행 취소", keys: "Ctrl + Z" },
+  { label: "다시 실행", keys: "Ctrl + Shift + Z" },
+  { label: "왼쪽 정렬", keys: "Ctrl + Shift + L" },
+  { label: "가운데 정렬", keys: "Ctrl + Shift + E" },
+  { label: "오른쪽 정렬", keys: "Ctrl + Shift + R" },
+  { label: "들여쓰기", keys: "Tab" },
+  { label: "내어쓰기", keys: "Shift + Tab" },
+];
 
-// ─── Toolbar Components ───────────────────────────
+// ─── Toolbar Components ─────────────────────────────────────
 function ToolbarButton({ icon: Icon, label, onClick, active }: { icon: any; label: string; onClick: () => void; active?: boolean }) {
   return (
     <button

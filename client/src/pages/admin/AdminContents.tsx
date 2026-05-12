@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Trash2, Eye, Lock, Globe, Search, PenSquare } from "lucide-react";
+import { Pencil, Trash2, Eye, Lock, Globe, Search, PenSquare, Copy } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -18,6 +18,10 @@ export default function AdminContents() {
   const deleteContent = trpc.admin.deleteContent.useMutation({
     onSuccess: () => { utils.admin.listContents.invalidate(); toast.success("콘텐츠가 삭제되었습니다."); },
     onError: (err) => toast.error(err.message || "콘텐츠 삭제에 실패했습니다."),
+  });
+  const duplicateContent = trpc.admin.duplicateContent.useMutation({
+    onSuccess: () => { utils.admin.listContents.invalidate(); toast.success("콘텐츠가 복제되었습니다. 임시저장 상태로 생성되었습니다."); },
+    onError: (err) => toast.error(err.message || "콘텐츠 복제에 실패했습니다."),
   });
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -170,8 +174,17 @@ export default function AdminContents() {
                       <button
                         onClick={() => navigate(`/admin/editor/${item.id}`)}
                         className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+                        title="편집"
                       >
                         <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => duplicateContent.mutate({ id: item.id })}
+                        className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="복제"
+                        disabled={duplicateContent.isPending}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
                       </button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>

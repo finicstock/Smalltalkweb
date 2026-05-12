@@ -129,3 +129,8 @@
 ## 에디터 기능 보완
 - [x] 줄간격 기능이 실제 저장/렌더링되도록 Tiptap paragraph extension에 style attribute 지원 추가
 - [x] 예약 발행 자동 공개 구현 (heartbeat/cron + /api/scheduled/* 콜백 + due content publish 로직)
+
+## 추가 기능 구현 (3종)
+- [x] 콘텐츠 목록 카드에 썸네일 이미지 표시 (이미 구현됨)
+- [x] 에디터 자동 저장 기능 (30초 간격 임시저장)
+- [x] 예약 발행 cron 등록 (manus-heartbeat create 완료, taskUid: Xuobg44XeL8TpQadCEyG7w, 매 5분)

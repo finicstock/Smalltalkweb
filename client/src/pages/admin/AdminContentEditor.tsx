@@ -29,7 +29,8 @@ import {
   Table as TableIcon, Youtube as YoutubeIcon, Paperclip, Type, Palette,
   Highlighter, ChevronDown, Plus, Trash2
 } from "lucide-react";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { usePersistFn } from "@/hooks/usePersistFn";
 import { useLocation, useRoute } from "wouter";
 import { toast } from "sonner";
 
@@ -85,11 +86,11 @@ export default function AdminContentEditor() {
   );
 
   const createContent = trpc.admin.createContent.useMutation({
-    onSuccess: () => { utils.admin.listContents.invalidate(); toast.success("콘텐츠가 발행되었습니다."); navigate("/admin/contents"); },
+    onSuccess: () => { try { localStorage.removeItem(`autosave-new-${contentType}`); } catch(e) {} utils.admin.listContents.invalidate(); toast.success("콘텐츠가 발행되었습니다."); navigate("/admin/contents"); },
     onError: (err) => toast.error(err.message || "콘텐츠 생성에 실패했습니다."),
   });
   const updateContent = trpc.admin.updateContent.useMutation({
-    onSuccess: () => { utils.admin.listContents.invalidate(); toast.success("콘텐츠가 수정되었습니다."); navigate("/admin/contents"); },
+    onSuccess: () => { try { localStorage.removeItem(`autosave-edit-${editId}`); } catch(e) {} utils.admin.listContents.invalidate(); toast.success("콘텐츠가 수정되었습니다."); navigate("/admin/contents"); },
     onError: (err) => toast.error(err.message || "콘텐츠 수정에 실패했습니다."),
   });
 
@@ -439,9 +440,144 @@ export default function AdminContentEditor() {
     setTags(tagList.filter((t) => t !== tag).join(","));
   };
 
-  // ─── Submit ───────────────────────────
-  const handleSave = (publishStatus: "draft" | "published") => {
-    if (!title.trim()) {
+  // ─── Auto-save (30s interval) ─────────────────────────────────────
+  const [lastAutoSaved, setLastAutoSaved] = useState<Date | null>(null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+
+  const autoSaveKey = useMemo(() => editId ? `autosave-edit-${editId}` : `autosave-new-${contentType}`, [editId, contentType]);
+
+  const performAutoSave = usePersistFn(async () => {
+    if (!title.trim() || !editor) return;
+    const body = editor.getHTML();
+    // Save to localStorage as backup
+    const draft = {
+      title, excerpt, slug, videoUrl, accessLevel, categoryId, tags,
+      thumbnailUrl, scheduledAt, contentType, body,
+      savedAt: new Date().toISOString(),
+    };
+    try {
+      localStorage.setItem(autoSaveKey, JSON.stringify(draft));
+    } catch (e) { /* localStorage full - ignore */ }
+
+    // Also save to server as draft (only if not already published)
+    if (status === "published") return;
+    setIsAutoSaving(true);
+    try {
+      const data: any = {
+        title: title.trim(),
+        slug: slug || slugify(title),
+        excerpt: excerpt || undefined,
+        body: body || undefined,
+        thumbnailUrl: thumbnailUrl || undefined,
+        contentType,
+        videoUrl: videoUrl || undefined,
+        accessLevel,
+        status: "draft" as const,
+        categoryId: categoryId && categoryId !== "none" ? parseInt(categoryId) : undefined,
+        tags: tags || undefined,
+        scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
+      };
+      if (editId) {
+        await utils.client.admin.updateContent.mutate({ id: editId, ...data });
+      }
+      // For new content, only save to localStorage (don't create server drafts on every autosave)
+      setLastAutoSaved(new Date());
+    } catch (e) {
+      // Silent fail for autosave
+      console.warn("[AutoSave] Failed:", e);
+    } finally {
+      setIsAutoSaving(false);
+    }
+  });
+
+  // Auto-save interval (30 seconds)
+  useEffect(() => {
+    if (step !== "edit") return;
+    const interval = setInterval(() => {
+      performAutoSave();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [step, performAutoSave]);
+
+  // Restore from localStorage on mount (for both new and existing content)
+  useEffect(() => {
+    if (!editor) return;
+    // For existing content, check if there's a more recent autosave
+    if (editId) {
+      try {
+        const saved = localStorage.getItem(`autosave-edit-${editId}`);
+        if (saved) {
+          const draft = JSON.parse(saved);
+          const savedDate = new Date(draft.savedAt);
+          const hoursSince = (Date.now() - savedDate.getTime()) / (1000 * 60 * 60);
+          if (hoursSince < 24) {
+            const restore = window.confirm(
+              `이전에 자동 저장된 변경사항이 있습니다 (${savedDate.toLocaleString("ko-KR")}).\n불러오시겠습니까?`
+            );
+            if (restore) {
+              setTitle(draft.title || "");
+              setExcerpt(draft.excerpt || "");
+              setSlug(draft.slug || "");
+              setVideoUrl(draft.videoUrl || "");
+              setAccessLevel(draft.accessLevel || "free");
+              setCategoryId(draft.categoryId || "");
+              setTags(draft.tags || "");
+              setThumbnailUrl(draft.thumbnailUrl || "");
+              setScheduledAt(draft.scheduledAt || "");
+              if (draft.body) editor.commands.setContent(draft.body);
+              toast.success("자동 저장된 변경사항을 불러왔습니다.");
+            } else {
+              localStorage.removeItem(`autosave-edit-${editId}`);
+            }
+          } else {
+            localStorage.removeItem(`autosave-edit-${editId}`);
+          }
+        }
+      } catch (e) { /* ignore */ }
+      return;
+    }
+    // For new content
+    try {
+      const saved = localStorage.getItem(autoSaveKey);
+      if (saved) {
+        const draft = JSON.parse(saved);
+        const savedDate = new Date(draft.savedAt);
+        const hoursSince = (Date.now() - savedDate.getTime()) / (1000 * 60 * 60);
+        if (hoursSince < 24) {
+          // Ask user if they want to restore
+          const restore = window.confirm(
+            `이전에 작성 중이던 글이 있습니다 (${savedDate.toLocaleString("ko-KR")}).\n불러오시겠습니까?`
+          );
+          if (restore) {
+            setTitle(draft.title || "");
+            setExcerpt(draft.excerpt || "");
+            setSlug(draft.slug || "");
+            setVideoUrl(draft.videoUrl || "");
+            setAccessLevel(draft.accessLevel || "free");
+            setCategoryId(draft.categoryId || "");
+            setTags(draft.tags || "");
+            setThumbnailUrl(draft.thumbnailUrl || "");
+            setScheduledAt(draft.scheduledAt || "");
+            if (draft.body) editor.commands.setContent(draft.body);
+            toast.success("임시저장된 글을 불러왔습니다.");
+          } else {
+            localStorage.removeItem(autoSaveKey);
+          }
+        } else {
+          // Too old, remove
+          localStorage.removeItem(autoSaveKey);
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }, [editor, autoSaveKey, editId]);
+
+  // Clear autosave on successful publish
+  const clearAutoSave = useCallback(() => {
+    try { localStorage.removeItem(autoSaveKey); } catch (e) { /* ignore */ }
+  }, [autoSaveKey]);
+
+  // ─── Submit ─────────────────────────────────────
+  const handleSave = (publishStatus: "draft" | "published") => { if (!title.trim()) {
       toast.error("제목을 입력해주세요.");
       return;
     }
@@ -524,6 +660,15 @@ export default function AdminContentEditor() {
           </button>
 
           <div className="flex items-center gap-2">
+            {/* Auto-save indicator */}
+            {isAutoSaving && (
+              <span className="text-xs text-muted-foreground animate-pulse">자동 저장 중...</span>
+            )}
+            {!isAutoSaving && lastAutoSaved && (
+              <span className="text-xs text-muted-foreground">
+                자동 저장 {lastAutoSaved.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
             <Button
               variant="outline"
               size="sm"

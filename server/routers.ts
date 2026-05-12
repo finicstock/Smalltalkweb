@@ -239,6 +239,7 @@ export const appRouter = router({
         accessLevel: z.enum(["free", "paid"]),
         status: z.enum(["draft", "published", "archived"]),
         categoryId: z.number().optional(),
+        tags: z.string().optional(),
         publishedAt: z.date().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
@@ -271,6 +272,7 @@ export const appRouter = router({
         accessLevel: z.enum(["free", "paid"]).optional(),
         status: z.enum(["draft", "published", "archived"]).optional(),
         categoryId: z.number().nullable().optional(),
+        tags: z.string().nullable().optional(),
         publishedAt: z.date().nullable().optional(),
       }))
       .mutation(async ({ input }) => {
@@ -442,13 +444,28 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         const { storagePut } = await import("./storage");
-        // Extract base64 data from data URL
         const base64Data = input.data.replace(/^data:[^;]+;base64,/, "");
         const buffer = Buffer.from(base64Data, "base64");
         const ext = input.filename.split(".").pop() || "png";
         const key = `content-images/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const { url } = await storagePut(key, buffer, input.contentType);
         return { url };
+      }),
+
+    uploadFile: adminProcedure
+      .input(z.object({
+        filename: z.string(),
+        data: z.string(), // base64 data URL
+        contentType: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const { storagePut } = await import("./storage");
+        const base64Data = input.data.replace(/^data:[^;]+;base64,/, "");
+        const buffer = Buffer.from(base64Data, "base64");
+        const ext = input.filename.split(".").pop() || "bin";
+        const key = `content-files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { url } = await storagePut(key, buffer, input.contentType);
+        return { url, filename: input.filename };
       }),
 
     // Payments

@@ -238,3 +238,196 @@
   background: oklch(0.546 0.245 262.881);
   color: white;
 }
+
+/* ─── Tiptap Editor Content Styles ─── */
+.editor-content .tiptap {
+  min-height: 400px;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #1a1a1a;
+}
+.editor-content .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+.editor-content .tiptap h1 { font-size: 28px; font-weight: 700; margin: 1.5em 0 0.5em; }
+.editor-content .tiptap h2 { font-size: 22px; font-weight: 600; margin: 1.3em 0 0.4em; }
+.editor-content .tiptap h3 { font-size: 18px; font-weight: 600; margin: 1.2em 0 0.3em; }
+.editor-content .tiptap p { margin: 0.8em 0; }
+.editor-content .tiptap img { max-width: 100%; height: auto; border-radius: 8px; margin: 1em 0; }
+.editor-content .tiptap blockquote {
+  border-left: 3px solid #e5e7eb;
+  padding-left: 1em;
+  margin: 1em 0;
+  color: #6b7280;
+}
+.editor-content .tiptap hr {
+  border: none;
+  border-top: 2px dashed #e5e7eb;
+  margin: 2em 0;
+}
+.editor-content .tiptap ul, .editor-content .tiptap ol {
+  padding-left: 1.5em;
+  margin: 0.8em 0;
+}
+.editor-content .tiptap code {
+  background: #f3f4f6;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.editor-content .tiptap pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 1em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.editor-content .tiptap a { color: #2563eb; text-decoration: underline; }
+
+/* ─── Table Styles ─── */
+.editor-content .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.editor-content .tiptap table td,
+.editor-content .tiptap table th {
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  min-width: 80px;
+  vertical-align: top;
+  position: relative;
+}
+.editor-content .tiptap table th {
+  background: #f9fafb;
+  font-weight: 600;
+  text-align: left;
+}
+.editor-content .tiptap table td.selectedCell,
+.editor-content .tiptap table th.selectedCell {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+.editor-content .tiptap table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #2563eb;
+  cursor: col-resize;
+  z-index: 10;
+}
+.editor-content .tiptap .tableWrapper {
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+/* ─── Highlight Styles ─── */
+.editor-content .tiptap mark {
+  border-radius: 2px;
+  padding: 0.1em 0.2em;
+}
+
+/* ─── YouTube Embed Styles ─── */
+.editor-content .tiptap div[data-youtube-video] {
+  margin: 1.5em 0;
+}
+.editor-content .tiptap div[data-youtube-video] iframe {
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  border: none;
+}
+
+/* ─── File Attachment Link Styles ─── */
+.editor-content .tiptap p a[download] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  color: #374151;
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.15s;
+}
+.editor-content .tiptap p a[download]:hover {
+  background: #e5e7eb;
+}
+
+/* ─── Content Body Styles (for published content detail page) ─── */
+.content-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+.content-body table td,
+.content-body table th {
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  min-width: 80px;
+  vertical-align: top;
+}
+.content-body table th {
+  background: #f9fafb;
+  font-weight: 600;
+  text-align: left;
+}
+.content-body mark {
+  border-radius: 2px;
+  padding: 0.1em 0.2em;
+}
+.content-body div[data-youtube-video] {
+  margin: 1.5em 0;
+}
+.content-body div[data-youtube-video] iframe,
+.content-body iframe[src*="youtube"] {
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  border: none;
+}
+.content-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1em 0;
+}
+.content-body a[download] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  color: #374151;
+  text-decoration: none;
+  font-size: 14px;
+}
+.content-body a[download]:hover {
+  background: #e5e7eb;
+}
+.content-body hr {
+  border: none;
+  border-top: 2px dashed #e5e7eb;
+  margin: 2em 0;
+}
+.content-body blockquote {
+  border-left: 3px solid #e5e7eb;
+  padding-left: 1em;
+  margin: 1em 0;
+  color: #6b7280;
+}

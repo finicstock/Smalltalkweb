@@ -22,6 +22,13 @@
       "when": 1778538412010,
       "tag": "0002_simple_harpoon",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1778561382007,
+      "tag": "0003_open_trish_tilby",
+      "breakpoints": true
     }
   ]
 }

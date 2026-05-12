@@ -45,6 +45,7 @@ export const contents = mysqlTable("contents", {
   status: mysqlEnum("status", ["draft", "published", "archived"]).default("draft").notNull(),
   categoryId: int("categoryId"),
   authorId: int("authorId"),
+  tags: text("tags"),
   viewCount: int("viewCount").default(0).notNull(),
   publishedAt: timestamp("publishedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

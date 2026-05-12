@@ -199,3 +199,90 @@ describe("playlist.listPublic", () => {
     expect(Array.isArray(result)).toBe(true);
   });
 });
+
+describe("admin.createContent with tags", () => {
+  it("accepts tags field in content creation", async () => {
+    const caller = appRouter.createCaller(createAdminContext());
+    const result = await caller.admin.createContent({
+      title: "Test Content With Tags",
+      slug: `test-tags-${Date.now()}`,
+      body: "Test body content",
+      contentType: "article",
+      accessLevel: "free",
+      status: "draft",
+      tags: "투자,ETF,주식",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("creates content without tags (optional)", async () => {
+    const caller = appRouter.createCaller(createAdminContext());
+    const result = await caller.admin.createContent({
+      title: "Test Content No Tags",
+      slug: `test-notags-${Date.now()}`,
+      body: "Test body content",
+      contentType: "article",
+      accessLevel: "free",
+      status: "draft",
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("admin.updateContent with tags", () => {
+  it("updates tags on existing content", async () => {
+    const caller = appRouter.createCaller(createAdminContext());
+    // First create content
+    const slug = `test-update-tags-${Date.now()}`;
+    await caller.admin.createContent({
+      title: "Update Tags Test",
+      slug,
+      body: "Body",
+      contentType: "article",
+      accessLevel: "free",
+      status: "draft",
+      tags: "original",
+    });
+    // Get the content list to find the id
+    const contents = await caller.admin.listContents({ limit: 100 });
+    const created = contents.find(c => c.slug === slug);
+    expect(created).toBeDefined();
+
+    // Update tags
+    const result = await caller.admin.updateContent({
+      id: created!.id,
+      tags: "updated,new-tag",
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("admin.uploadFile", () => {
+  it("rejects non-admin user", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    await expect(
+      caller.admin.uploadFile({
+        filename: "test.pdf",
+        data: "data:application/pdf;base64,dGVzdA==",
+        contentType: "application/pdf",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("validates input schema", async () => {
+    const caller = appRouter.createCaller(createAdminContext());
+    // Missing required fields should fail
+    await expect(
+      (caller.admin.uploadFile as any)({})
+    ).rejects.toThrow();
+  });
+});
+
+describe("admin.contentCount", () => {
+  it("returns content count for admin", async () => {
+    const caller = appRouter.createCaller(createAdminContext());
+    const result = await caller.admin.contentCount();
+    expect(typeof result).toBe("number");
+    expect(result).toBeGreaterThanOrEqual(0);
+  });
+});

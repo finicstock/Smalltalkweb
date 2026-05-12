@@ -135,8 +135,13 @@ export default function ContentDetail() {
             prose-a:text-primary prose-strong:text-foreground
             prose-blockquote:border-primary/30 prose-blockquote:text-muted-foreground
             prose-code:text-primary prose-code:bg-primary/5 prose-code:rounded prose-code:px-1
+            content-body
           ">
-            <Streamdown>{content.body ?? ""}</Streamdown>
+            {content.body?.trim().startsWith('<') ? (
+              <div dangerouslySetInnerHTML={{ __html: content.body }} />
+            ) : (
+              <Streamdown>{content.body ?? ""}</Streamdown>
+            )}
           </div>
         ) : (
           <div className="relative">
@@ -144,7 +149,11 @@ export default function ContentDetail() {
             {content.body && (
               <div className="max-h-48 overflow-hidden relative">
                 <div className="prose prose-lg max-w-none text-foreground opacity-50 blur-[2px]">
-                  <Streamdown>{content.body.slice(0, 300) + "..."}</Streamdown>
+                  {content.body?.trim().startsWith('<') ? (
+                    <div dangerouslySetInnerHTML={{ __html: content.body.slice(0, 500) + "..." }} />
+                  ) : (
+                    <Streamdown>{content.body.slice(0, 300) + "..."}</Streamdown>
+                  )}
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
               </div>

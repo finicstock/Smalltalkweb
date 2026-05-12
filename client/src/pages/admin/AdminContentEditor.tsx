@@ -12,18 +12,42 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import Link from "@tiptap/extension-link";
+import Color from "@tiptap/extension-color";
+import { TextStyle } from "@tiptap/extension-text-style";
+import Highlight from "@tiptap/extension-highlight";
+import { Table } from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
+import Youtube from "@tiptap/extension-youtube";
 import {
   ArrowLeft, Save, Send, Eye, Image as ImageIcon, Video, Minus, Link as LinkIcon,
   Bold, Italic, Underline as UnderlineIcon, Strikethrough, AlignLeft, AlignCenter,
   AlignRight, Heading1, Heading2, Heading3, List, ListOrdered, Quote, Code,
-  Lock, ChevronRight, X, Upload
+  Lock, ChevronRight, X, Upload, Undo2, Redo2, Indent, Outdent,
+  Table as TableIcon, Youtube as YoutubeIcon, Paperclip, Type, Palette,
+  Highlighter, ChevronDown, Plus, Trash2
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation, useRoute } from "wouter";
 import { toast } from "sonner";
 
-// ─── Paywall Divider Extension ───────────────────────────
-// Paywall marker (visual only, actual paywall is handled by accessLevel)
+// ─── FontSize Extension (custom) ───────────────────────────
+const FontSize = TextStyle.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      fontSize: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.style.fontSize?.replace(/['"]+/g, "") || null,
+        renderHTML: (attributes: Record<string, any>) => {
+          if (!attributes.fontSize) return {};
+          return { style: `font-size: ${attributes.fontSize}` };
+        },
+      },
+    };
+  },
+});
 
 function slugify(text: string) {
   return text
@@ -67,10 +91,16 @@ export default function AdminContentEditor() {
   const [accessLevel, setAccessLevel] = useState<"free" | "paid">("free");
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [categoryId, setCategoryId] = useState("");
+  const [tags, setTags] = useState("");
+  const [tagInput, setTagInput] = useState("");
   const [paywallPosition, setPaywallPosition] = useState<number | null>(null);
   const [showPublishPanel, setShowPublishPanel] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [showFontSize, setShowFontSize] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachInputRef = useRef<HTMLInputElement>(null);
 
   // ─── Tiptap Editor ───────────────────────────
   const editor = useEditor({
@@ -83,6 +113,14 @@ export default function AdminContentEditor() {
       Underline,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       Link.configure({ openOnClick: false }),
+      FontSize,
+      Color,
+      Highlight.configure({ multicolor: true }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
+      Youtube.configure({ inline: false, ccLanguage: "ko" }),
     ],
     content: "",
     editorProps: {
@@ -105,10 +143,10 @@ export default function AdminContentEditor() {
         setAccessLevel(item.accessLevel as "free" | "paid");
         setStatus(item.status === "archived" ? "draft" : item.status as "draft" | "published");
         setCategoryId(item.categoryId?.toString() ?? "");
-        // Convert markdown body to HTML for tiptap
+        setTags((item as any).tags ?? "");
         if (item.body && editor) {
-          // Simple markdown to HTML conversion for loading
-          const html = markdownToHtml(item.body);
+          // If body starts with '<', it's already HTML; otherwise convert from markdown
+          const html = item.body.trim().startsWith('<') ? item.body : markdownToHtml(item.body);
           editor.commands.setContent(html);
         }
       }
@@ -124,14 +162,11 @@ export default function AdminContentEditor() {
         reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
       });
-
-      // Upload via tRPC
       const result = await utils.client.admin.uploadImage.mutate({
         filename: file.name,
         data: base64,
         contentType: file.type,
       });
-
       if (result?.url && editor) {
         editor.chain().focus().setImage({ src: result.url }).run();
       }
@@ -159,6 +194,46 @@ export default function AdminContentEditor() {
     e.target.value = "";
   };
 
+  // ─── File Attachment Upload ───────────────────────────
+  const handleAttachFile = () => {
+    attachInputRef.current?.click();
+  };
+
+  const handleAttachChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("파일 크기는 50MB 이하여야 합니다.");
+      return;
+    }
+    setIsUploading(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      const result = await utils.client.admin.uploadFile.mutate({
+        filename: file.name,
+        data: base64,
+        contentType: file.type,
+      });
+      if (result?.url && editor) {
+        // Insert a download link block
+        editor.chain().focus().insertContent(
+          `<p>📎 <a href="${result.url}" target="_blank" download="${file.name}">${file.name}</a></p>`
+        ).run();
+        toast.success("파일이 첨부되었습니다.");
+      }
+    } catch (err: any) {
+      toast.error("파일 업로드에 실패했습니다.");
+      console.error(err);
+    } finally {
+      setIsUploading(false);
+    }
+    e.target.value = "";
+  };
+
   // ─── Paywall Insert ───────────────────────────
   const insertPaywall = () => {
     if (!editor) return;
@@ -177,6 +252,91 @@ export default function AdminContentEditor() {
     }
   };
 
+  // ─── YouTube Insert ───────────────────────────
+  const insertYoutube = () => {
+    if (!editor) return;
+    const url = window.prompt("YouTube 영상 URL을 입력하세요:");
+    if (url) {
+      editor.commands.setYoutubeVideo({ src: url, width: 640, height: 360 });
+    }
+  };
+
+  // ─── Table Insert ───────────────────────────
+  const insertTable = () => {
+    if (!editor) return;
+    editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+  };
+
+  // ─── Font Size ───────────────────────────
+  const setFontSize = (size: string) => {
+    if (!editor) return;
+    if (size === "default") {
+      editor.chain().focus().unsetMark("textStyle").run();
+    } else {
+      editor.chain().focus().setMark("textStyle", { fontSize: size }).run();
+    }
+    setShowFontSize(false);
+  };
+
+  // ─── Text Color ───────────────────────────
+  const setTextColor = (color: string) => {
+    if (!editor) return;
+    if (color === "default") {
+      editor.chain().focus().unsetColor().run();
+    } else {
+      editor.chain().focus().setColor(color).run();
+    }
+    setShowColorPicker(false);
+  };
+
+  // ─── Highlight Color ───────────────────────────
+  const setHighlightColor = (color: string) => {
+    if (!editor) return;
+    if (color === "none") {
+      editor.chain().focus().unsetHighlight().run();
+    } else {
+      editor.chain().focus().toggleHighlight({ color }).run();
+    }
+    setShowHighlightPicker(false);
+  };
+
+  // ─── Indent / Outdent ───────────────────────────
+  const handleIndent = () => {
+    if (!editor) return;
+    if (editor.isActive("bulletList") || editor.isActive("orderedList")) {
+      editor.chain().focus().sinkListItem("listItem").run();
+    } else {
+      // For paragraphs, use margin-left style
+      const { from } = editor.state.selection;
+      const node = editor.state.doc.resolve(from).parent;
+      const currentIndent = parseInt(node.attrs?.style?.match(/margin-left:\s*(\d+)/)?.[1] || "0");
+      editor.chain().focus().updateAttributes("paragraph", { style: `margin-left: ${currentIndent + 40}px` }).run();
+    }
+  };
+
+  const handleOutdent = () => {
+    if (!editor) return;
+    if (editor.isActive("bulletList") || editor.isActive("orderedList")) {
+      editor.chain().focus().liftListItem("listItem").run();
+    }
+  };
+
+  // ─── Tags ───────────────────────────
+  const tagList = tags ? tags.split(",").filter(Boolean) : [];
+  const addTag = () => {
+    const t = tagInput.trim();
+    if (!t) return;
+    if (tagList.includes(t)) {
+      toast.error("이미 추가된 태그입니다.");
+      return;
+    }
+    setTags(tagList.length > 0 ? `${tags},${t}` : t);
+    setTagInput("");
+  };
+  const removeTag = (tag: string) => {
+    setTags(tagList.filter((t) => t !== tag).join(","));
+  };
+
   // ─── Submit ───────────────────────────
   const handleSave = (publishStatus: "draft" | "published") => {
     if (!title.trim()) {
@@ -184,7 +344,7 @@ export default function AdminContentEditor() {
       return;
     }
 
-    const body = editor ? htmlToMarkdown(editor.getHTML()) : "";
+    const body = editor ? editor.getHTML() : "";
     const data = {
       title: title.trim(),
       slug: slug || slugify(title),
@@ -195,6 +355,7 @@ export default function AdminContentEditor() {
       accessLevel,
       status: publishStatus,
       categoryId: categoryId && categoryId !== "none" ? parseInt(categoryId) : undefined,
+      tags: tags || undefined,
     };
 
     if (editId) {
@@ -306,30 +467,152 @@ export default function AdminContentEditor() {
             )}
 
             {/* Toolbar */}
-            <div className="sticky top-14 z-10 bg-white border-b border-gray-200 -mx-6 px-6 py-2 mb-4">
+            <div className="sticky top-14 z-10 bg-white border-b border-gray-200 -mx-6 px-4 py-1.5 mb-4">
+              {/* Row 1: Text formatting */}
               <div className="flex items-center gap-0.5 flex-wrap">
+                {/* Undo / Redo */}
+                <ToolbarButton icon={Undo2} label="실행취소" onClick={() => editor?.chain().focus().undo().run()} />
+                <ToolbarButton icon={Redo2} label="다시실행" onClick={() => editor?.chain().focus().redo().run()} />
+                <ToolbarSeparator />
+
+                {/* Headings */}
                 <ToolbarButton icon={Heading1} label="제목1" onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()} active={editor?.isActive("heading", { level: 1 })} />
                 <ToolbarButton icon={Heading2} label="제목2" onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()} active={editor?.isActive("heading", { level: 2 })} />
                 <ToolbarButton icon={Heading3} label="제목3" onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()} active={editor?.isActive("heading", { level: 3 })} />
                 <ToolbarSeparator />
+
+                {/* Font Size Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowFontSize(!showFontSize); setShowColorPicker(false); setShowHighlightPicker(false); }}
+                    title="글자 크기"
+                    className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 text-[12px]"
+                  >
+                    <Type className="h-3.5 w-3.5" />
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showFontSize && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 w-32">
+                      {[
+                        { label: "기본", value: "default" },
+                        { label: "12px", value: "12px" },
+                        { label: "14px", value: "14px" },
+                        { label: "16px", value: "16px" },
+                        { label: "18px", value: "18px" },
+                        { label: "20px", value: "20px" },
+                        { label: "24px", value: "24px" },
+                        { label: "28px", value: "28px" },
+                        { label: "32px", value: "32px" },
+                        { label: "36px", value: "36px" },
+                      ].map((s) => (
+                        <button
+                          key={s.value}
+                          onClick={() => setFontSize(s.value)}
+                          className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-gray-100"
+                          style={{ fontSize: s.value === "default" ? undefined : s.value }}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <ToolbarSeparator />
+
+                {/* Bold, Italic, Underline, Strike */}
                 <ToolbarButton icon={Bold} label="굵게" onClick={() => editor?.chain().focus().toggleBold().run()} active={editor?.isActive("bold")} />
                 <ToolbarButton icon={Italic} label="기울임" onClick={() => editor?.chain().focus().toggleItalic().run()} active={editor?.isActive("italic")} />
                 <ToolbarButton icon={UnderlineIcon} label="밑줄" onClick={() => editor?.chain().focus().toggleUnderline().run()} active={editor?.isActive("underline")} />
                 <ToolbarButton icon={Strikethrough} label="취소선" onClick={() => editor?.chain().focus().toggleStrike().run()} active={editor?.isActive("strike")} />
                 <ToolbarSeparator />
+
+                {/* Text Color */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowColorPicker(!showColorPicker); setShowHighlightPicker(false); setShowFontSize(false); }}
+                    title="글자색"
+                    className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    <Palette className="h-4 w-4" />
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showColorPicker && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50">
+                      <p className="text-[11px] text-gray-500 mb-1.5 px-1">글자색</p>
+                      <div className="grid grid-cols-6 gap-1">
+                        {TEXT_COLORS.map((c) => (
+                          <button
+                            key={c.value}
+                            onClick={() => setTextColor(c.value)}
+                            title={c.label}
+                            className="w-6 h-6 rounded border border-gray-200 hover:scale-110 transition-transform"
+                            style={{ backgroundColor: c.value === "default" ? "#1a1a1a" : c.value }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Highlight Color */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowHighlightPicker(!showHighlightPicker); setShowColorPicker(false); setShowFontSize(false); }}
+                    title="형광펜"
+                    className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                  >
+                    <Highlighter className="h-4 w-4" />
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showHighlightPicker && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50">
+                      <p className="text-[11px] text-gray-500 mb-1.5 px-1">배경색</p>
+                      <div className="grid grid-cols-6 gap-1">
+                        {HIGHLIGHT_COLORS.map((c) => (
+                          <button
+                            key={c.value}
+                            onClick={() => setHighlightColor(c.value)}
+                            title={c.label}
+                            className="w-6 h-6 rounded border border-gray-200 hover:scale-110 transition-transform"
+                            style={{ backgroundColor: c.value === "none" ? "#ffffff" : c.value }}
+                          >
+                            {c.value === "none" && <X className="h-3 w-3 mx-auto text-gray-400" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <ToolbarSeparator />
+
+                {/* Alignment */}
                 <ToolbarButton icon={AlignLeft} label="왼쪽" onClick={() => editor?.chain().focus().setTextAlign("left").run()} active={editor?.isActive({ textAlign: "left" })} />
                 <ToolbarButton icon={AlignCenter} label="가운데" onClick={() => editor?.chain().focus().setTextAlign("center").run()} active={editor?.isActive({ textAlign: "center" })} />
                 <ToolbarButton icon={AlignRight} label="오른쪽" onClick={() => editor?.chain().focus().setTextAlign("right").run()} active={editor?.isActive({ textAlign: "right" })} />
                 <ToolbarSeparator />
+
+                {/* Lists & Indent */}
                 <ToolbarButton icon={List} label="목록" onClick={() => editor?.chain().focus().toggleBulletList().run()} active={editor?.isActive("bulletList")} />
                 <ToolbarButton icon={ListOrdered} label="번호목록" onClick={() => editor?.chain().focus().toggleOrderedList().run()} active={editor?.isActive("orderedList")} />
+                <ToolbarButton icon={Indent} label="들여쓰기" onClick={handleIndent} />
+                <ToolbarButton icon={Outdent} label="내어쓰기" onClick={handleOutdent} />
+                <ToolbarSeparator />
+
+                {/* Block elements */}
                 <ToolbarButton icon={Quote} label="인용" onClick={() => editor?.chain().focus().toggleBlockquote().run()} active={editor?.isActive("blockquote")} />
                 <ToolbarButton icon={Code} label="코드" onClick={() => editor?.chain().focus().toggleCodeBlock().run()} active={editor?.isActive("codeBlock")} />
-                <ToolbarSeparator />
-                <ToolbarButton icon={ImageIcon} label="이미지" onClick={handleImageSelect} />
-                <ToolbarButton icon={LinkIcon} label="링크" onClick={insertLink} active={editor?.isActive("link")} />
                 <ToolbarButton icon={Minus} label="구분선" onClick={() => editor?.chain().focus().setHorizontalRule().run()} />
                 <ToolbarSeparator />
+
+                {/* Media & Insert */}
+                <ToolbarButton icon={ImageIcon} label="이미지" onClick={handleImageSelect} />
+                <ToolbarButton icon={YoutubeIcon} label="YouTube" onClick={insertYoutube} />
+                <ToolbarButton icon={TableIcon} label="표 삽입" onClick={insertTable} />
+                <ToolbarButton icon={LinkIcon} label="링크" onClick={insertLink} active={editor?.isActive("link")} />
+                <ToolbarButton icon={Paperclip} label="파일 첨부" onClick={handleAttachFile} />
+                <ToolbarSeparator />
+
+                {/* Paywall */}
                 <button
                   onClick={insertPaywall}
                   className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-md hover:bg-amber-100 transition-colors"
@@ -337,22 +620,43 @@ export default function AdminContentEditor() {
                   <Lock className="h-3 w-3" /> 페이월
                 </button>
               </div>
+
+              {/* Table controls (shown when cursor is in table) */}
+              {editor?.isActive("table") && (
+                <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-gray-100">
+                  <span className="text-[11px] text-gray-400 mr-1">표:</span>
+                  <button onClick={() => editor.chain().focus().addColumnAfter().run()} className="px-2 py-1 text-[11px] text-gray-600 bg-gray-100 rounded hover:bg-gray-200">열 추가</button>
+                  <button onClick={() => editor.chain().focus().addRowAfter().run()} className="px-2 py-1 text-[11px] text-gray-600 bg-gray-100 rounded hover:bg-gray-200">행 추가</button>
+                  <button onClick={() => editor.chain().focus().deleteColumn().run()} className="px-2 py-1 text-[11px] text-red-600 bg-red-50 rounded hover:bg-red-100">열 삭제</button>
+                  <button onClick={() => editor.chain().focus().deleteRow().run()} className="px-2 py-1 text-[11px] text-red-600 bg-red-50 rounded hover:bg-red-100">행 삭제</button>
+                  <button onClick={() => editor.chain().focus().deleteTable().run()} className="px-2 py-1 text-[11px] text-red-600 bg-red-50 rounded hover:bg-red-100">표 삭제</button>
+                  <button onClick={() => editor.chain().focus().mergeCells().run()} className="px-2 py-1 text-[11px] text-gray-600 bg-gray-100 rounded hover:bg-gray-200">셀 병합</button>
+                  <button onClick={() => editor.chain().focus().splitCell().run()} className="px-2 py-1 text-[11px] text-gray-600 bg-gray-100 rounded hover:bg-gray-200">셀 분할</button>
+                </div>
+              )}
             </div>
 
             {/* Editor Content */}
             {isUploading && (
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-[13px] text-blue-700 flex items-center gap-2">
-                <Upload className="h-4 w-4 animate-pulse" /> 이미지 업로드 중...
+                <Upload className="h-4 w-4 animate-pulse" /> 업로드 중...
               </div>
             )}
             <EditorContent editor={editor} className="editor-content" />
 
-            {/* Hidden file input */}
+            {/* Hidden file inputs */}
             <input
               ref={fileInputRef}
               type="file"
               accept="image/*"
               onChange={handleFileChange}
+              className="hidden"
+            />
+            <input
+              ref={attachInputRef}
+              type="file"
+              accept="*/*"
+              onChange={handleAttachChange}
               className="hidden"
             />
           </div>
@@ -407,6 +711,35 @@ export default function AdminContentEditor() {
                   </Select>
                 </div>
 
+                {/* Tags */}
+                <div className="space-y-1.5">
+                  <Label className="text-[13px] text-gray-700">태그</Label>
+                  <div className="flex gap-1.5">
+                    <Input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
+                      placeholder="태그 입력 후 Enter"
+                      className="text-[13px] bg-white flex-1"
+                    />
+                    <Button variant="outline" size="sm" onClick={addTag} className="text-[12px] px-2">
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                  {tagList.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {tagList.map((tag) => (
+                        <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-200 text-gray-700 rounded text-[12px]">
+                          #{tag}
+                          <button onClick={() => removeTag(tag)} className="hover:text-red-500">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* Access Level */}
                 <div className="space-y-1.5">
                   <Label className="text-[13px] text-gray-700">판매 설정</Label>
@@ -452,60 +785,47 @@ export default function AdminContentEditor() {
         )}
       </div>
 
-      {/* Editor Styles */}
-      <style>{`
-        .editor-content .tiptap {
-          min-height: 400px;
-          font-size: 16px;
-          line-height: 1.8;
-          color: #1a1a1a;
-        }
-        .editor-content .tiptap p.is-editor-empty:first-child::before {
-          content: attr(data-placeholder);
-          float: left;
-          color: #adb5bd;
-          pointer-events: none;
-          height: 0;
-        }
-        .editor-content .tiptap h1 { font-size: 28px; font-weight: 700; margin: 1.5em 0 0.5em; }
-        .editor-content .tiptap h2 { font-size: 22px; font-weight: 600; margin: 1.3em 0 0.4em; }
-        .editor-content .tiptap h3 { font-size: 18px; font-weight: 600; margin: 1.2em 0 0.3em; }
-        .editor-content .tiptap p { margin: 0.8em 0; }
-        .editor-content .tiptap img { max-width: 100%; height: auto; border-radius: 8px; margin: 1em 0; }
-        .editor-content .tiptap blockquote {
-          border-left: 3px solid #e5e7eb;
-          padding-left: 1em;
-          margin: 1em 0;
-          color: #6b7280;
-        }
-        .editor-content .tiptap hr {
-          border: none;
-          border-top: 2px dashed #e5e7eb;
-          margin: 2em 0;
-        }
-        .editor-content .tiptap ul, .editor-content .tiptap ol {
-          padding-left: 1.5em;
-          margin: 0.8em 0;
-        }
-        .editor-content .tiptap code {
-          background: #f3f4f6;
-          padding: 0.2em 0.4em;
-          border-radius: 4px;
-          font-size: 0.9em;
-        }
-        .editor-content .tiptap pre {
-          background: #1e293b;
-          color: #e2e8f0;
-          padding: 1em;
-          border-radius: 8px;
-          overflow-x: auto;
-          margin: 1em 0;
-        }
-        .editor-content .tiptap a { color: #2563eb; text-decoration: underline; }
-      `}</style>
+      {/* Close dropdowns on click outside */}
+      {(showColorPicker || showHighlightPicker || showFontSize) && (
+        <div
+          className="fixed inset-0 z-[5]"
+          onClick={() => { setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); }}
+        />
+      )}
     </div>
   );
 }
+
+// ─── Color Constants ───────────────────────────
+const TEXT_COLORS = [
+  { label: "기본", value: "default" },
+  { label: "검정", value: "#000000" },
+  { label: "진회색", value: "#4a4a4a" },
+  { label: "회색", value: "#9b9b9b" },
+  { label: "빨강", value: "#e74c3c" },
+  { label: "주황", value: "#e67e22" },
+  { label: "노랑", value: "#f1c40f" },
+  { label: "초록", value: "#27ae60" },
+  { label: "파랑", value: "#2980b9" },
+  { label: "남색", value: "#2c3e50" },
+  { label: "보라", value: "#8e44ad" },
+  { label: "분홍", value: "#e91e63" },
+];
+
+const HIGHLIGHT_COLORS = [
+  { label: "없음", value: "none" },
+  { label: "노랑", value: "#fef08a" },
+  { label: "초록", value: "#bbf7d0" },
+  { label: "파랑", value: "#bfdbfe" },
+  { label: "분홍", value: "#fecdd3" },
+  { label: "보라", value: "#e9d5ff" },
+  { label: "주황", value: "#fed7aa" },
+  { label: "회색", value: "#e5e7eb" },
+  { label: "연노랑", value: "#fef9c3" },
+  { label: "연초록", value: "#dcfce7" },
+  { label: "연파랑", value: "#dbeafe" },
+  { label: "연분홍", value: "#ffe4e6" },
+];
 
 // ─── Toolbar Components ───────────────────────────
 function ToolbarButton({ icon: Icon, label, onClick, active }: { icon: any; label: string; onClick: () => void; active?: boolean }) {
@@ -598,6 +918,31 @@ function htmlToMarkdown(html: string): string {
   md = md.replace(/<code>(.*?)<\/code>/gi, "`$1`");
   // Horizontal rules
   md = md.replace(/<hr[^>]*\/?>/gi, "---\n\n");
+  // YouTube embeds
+  md = md.replace(/<div[^>]*data-youtube-video[^>]*>[\s\S]*?<iframe[^>]*src="([^"]*)"[^>]*>[\s\S]*?<\/div>/gi, "\n[YouTube]($1)\n\n");
+  // Tables
+  md = md.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (_, tableContent) => {
+    const rows: string[][] = [];
+    const rowMatches = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
+    rowMatches.forEach((row: string) => {
+      const cells: string[] = [];
+      const cellMatches = row.match(/<(?:td|th)[^>]*>([\s\S]*?)<\/(?:td|th)>/gi) || [];
+      cellMatches.forEach((cell: string) => {
+        cells.push(cell.replace(/<[^>]+>/g, "").trim());
+      });
+      rows.push(cells);
+    });
+    if (rows.length === 0) return "";
+    const colCount = Math.max(...rows.map(r => r.length));
+    let table = "";
+    rows.forEach((row, idx) => {
+      table += "| " + row.map(c => c || " ").join(" | ") + " |\n";
+      if (idx === 0) {
+        table += "| " + Array(colCount).fill("---").join(" | ") + " |\n";
+      }
+    });
+    return table + "\n";
+  });
   // Paragraphs & line breaks
   md = md.replace(/<br\s*\/?>/gi, "\n");
   md = md.replace(/<p[^>]*>(.*?)<\/p>/gi, "$1\n\n");

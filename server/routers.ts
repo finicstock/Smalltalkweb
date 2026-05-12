@@ -241,15 +241,20 @@ export const appRouter = router({
         categoryId: z.number().optional(),
         tags: z.string().optional(),
         publishedAt: z.date().optional(),
+        scheduledAt: z.date().nullable().optional(),
       }))
       .mutation(async ({ input, ctx }) => {
         const data = { ...input, authorId: ctx.user.id };
-        if (input.status === "published" && !input.publishedAt) {
+        // If scheduled, keep as draft with scheduledAt set
+        if (input.scheduledAt && input.scheduledAt > new Date()) {
+          (data as any).status = "draft";
+          (data as any).scheduledAt = input.scheduledAt;
+        } else if (input.status === "published" && !input.publishedAt) {
           (data as any).publishedAt = new Date();
         }
         await db.createContent(data);
 
-        if (input.status === "published") {
+        if (input.status === "published" && !input.scheduledAt) {
           await notifyOwner({
             title: `새 콘텐츠 발행`,
             content: `"${input.title}" 콘텐츠가 발행되었습니다.`,
@@ -274,10 +279,14 @@ export const appRouter = router({
         categoryId: z.number().nullable().optional(),
         tags: z.string().nullable().optional(),
         publishedAt: z.date().nullable().optional(),
+        scheduledAt: z.date().nullable().optional(),
       }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
-        if (data.status === "published" && !data.publishedAt) {
+        // If scheduled, keep as draft with scheduledAt
+        if (data.scheduledAt && data.scheduledAt > new Date()) {
+          (data as any).status = "draft";
+        } else if (data.status === "published" && !data.publishedAt) {
           (data as any).publishedAt = new Date();
         }
         await db.updateContent(id, data as any);

@@ -159,7 +159,30 @@ export async function deleteContent(id: number) {
   await db.delete(contents).where(eq(contents.id, id));
 }
 
-// ─── Plans ───────────────────────────────────────────
+// ─── Scheduled Publishing ────────────────────────────────────────
+export async function publishDueContents() {
+  const db = await getDb();
+  if (!db) return { published: 0 };
+  const now = new Date();
+  // Find all draft contents with scheduledAt <= now
+  const dueContents = await db.select().from(contents)
+    .where(
+      and(
+        eq(contents.status, "draft"),
+        sql`${contents.scheduledAt} IS NOT NULL AND ${contents.scheduledAt} <= ${now}`
+      )
+    );
+  let published = 0;
+  for (const item of dueContents) {
+    await db.update(contents)
+      .set({ status: "published", publishedAt: now, scheduledAt: null })
+      .where(eq(contents.id, item.id));
+    published++;
+  }
+  return { published, items: dueContents.map(c => ({ id: c.id, title: c.title })) };
+}
+
+// ─── Plans ───────────────────────────────────────────────────
 export async function listActivePlans() {
   const db = await getDb();
   if (!db) return [];

@@ -286,3 +286,59 @@ describe("admin.contentCount", () => {
     expect(result).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("admin.createContent with scheduledAt", () => {
+  it("accepts scheduledAt field in createContent", async () => {
+    const caller = appRouter.createCaller(createAdminContext());
+    const futureDate = new Date(Date.now() + 86400000); // tomorrow
+    const result = await caller.admin.createContent({
+      title: "Scheduled Test Post",
+      slug: `scheduled-test-${Date.now()}`,
+      contentType: "article",
+      accessLevel: "free",
+      status: "published",
+      scheduledAt: futureDate,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts thumbnailUrl field in createContent", async () => {
+    const caller = appRouter.createCaller(createAdminContext());
+    const result = await caller.admin.createContent({
+      title: "Thumbnail Test Post",
+      slug: `thumbnail-test-${Date.now()}`,
+      contentType: "article",
+      accessLevel: "free",
+      status: "draft",
+      thumbnailUrl: "/manus-storage/test-thumbnail.jpg",
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("admin.updateContent with scheduledAt", () => {
+  it("accepts scheduledAt in updateContent", async () => {
+    const caller = appRouter.createCaller(createAdminContext());
+    // First create a content
+    const slug = `update-sched-test-${Date.now()}`;
+    await caller.admin.createContent({
+      title: "Update Sched Test",
+      slug,
+      contentType: "article",
+      accessLevel: "free",
+      status: "draft",
+    });
+    // Get the content id
+    const contents = await caller.admin.listContents({ limit: 100 });
+    const item = contents.find((c) => c.slug === slug);
+    expect(item).toBeDefined();
+
+    const futureDate = new Date(Date.now() + 86400000);
+    const result = await caller.admin.updateContent({
+      id: item!.id,
+      scheduledAt: futureDate,
+      thumbnailUrl: "/manus-storage/updated-thumb.png",
+    });
+    expect(result.success).toBe(true);
+  });
+});

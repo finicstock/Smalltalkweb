@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { Paragraph } from "@tiptap/extension-paragraph";
 import ImageResize from "tiptap-extension-resize-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
@@ -41,8 +42,19 @@ const FontSize = TextStyle.extend({
         default: null,
         parseHTML: (element: HTMLElement) => element.style.fontSize?.replace(/['"]+/g, "") || null,
         renderHTML: (attributes: Record<string, any>) => {
-          if (!attributes.fontSize) return {};
-          return { style: `font-size: ${attributes.fontSize}` };
+          if (!attributes.fontSize && !attributes.letterSpacing) return {};
+          const styles: string[] = [];
+          if (attributes.fontSize) styles.push(`font-size: ${attributes.fontSize}`);
+          if (attributes.letterSpacing) styles.push(`letter-spacing: ${attributes.letterSpacing}`);
+          return { style: styles.join("; ") };
+        },
+      },
+      letterSpacing: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.style.letterSpacing || null,
+        renderHTML: (attributes: Record<string, any>) => {
+          if (!attributes.letterSpacing) return {};
+          return { style: `letter-spacing: ${attributes.letterSpacing}` };
         },
       },
     };
@@ -99,14 +111,36 @@ export default function AdminContentEditor() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showFontSize, setShowFontSize] = useState(false);
+  const [showLineHeight, setShowLineHeight] = useState(false);
+  const [showLetterSpacing, setShowLetterSpacing] = useState(false);
+  const [thumbnailUrl, setThumbnailUrl] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachInputRef = useRef<HTMLInputElement>(null);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
   // ─── Tiptap Editor ───────────────────────────
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        paragraph: false,
+      }),
+      Paragraph.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            style: {
+              default: null,
+              parseHTML: (element: HTMLElement) => element.getAttribute("style") || null,
+              renderHTML: (attributes: Record<string, any>) => {
+                if (!attributes.style) return {};
+                return { style: attributes.style };
+              },
+            },
+          };
+        },
       }),
       ImageResize.configure({ inline: false, allowBase64: true }),
       Placeholder.configure({ placeholder: "본문을 작성하세요..." }),
@@ -144,6 +178,11 @@ export default function AdminContentEditor() {
         setStatus(item.status === "archived" ? "draft" : item.status as "draft" | "published");
         setCategoryId(item.categoryId?.toString() ?? "");
         setTags((item as any).tags ?? "");
+        setThumbnailUrl(item.thumbnailUrl ?? "");
+        if ((item as any).scheduledAt) {
+          const d = new Date((item as any).scheduledAt);
+          setScheduledAt(d.toISOString().slice(0, 16));
+        }
         if (item.body && editor) {
           // If body starts with '<', it's already HTML; otherwise convert from markdown
           const html = item.body.trim().startsWith('<') ? item.body : markdownToHtml(item.body);
@@ -232,6 +271,69 @@ export default function AdminContentEditor() {
       setIsUploading(false);
     }
     e.target.value = "";
+  };
+
+  // ─── Thumbnail Upload ───────────────────────────
+  const handleThumbnailSelect = () => {
+    thumbnailInputRef.current?.click();
+  };
+
+  const handleThumbnailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("이미지 파일만 업로드할 수 있습니다.");
+      return;
+    }
+    setIsUploadingThumbnail(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+      const result = await utils.client.admin.uploadImage.mutate({
+        filename: file.name,
+        data: base64,
+        contentType: file.type,
+      });
+      if (result?.url) {
+        setThumbnailUrl(result.url);
+        toast.success("썸네일이 설정되었습니다.");
+      }
+    } catch (err: any) {
+      toast.error("썸네일 업로드에 실패했습니다.");
+      console.error(err);
+    } finally {
+      setIsUploadingThumbnail(false);
+    }
+    e.target.value = "";
+  };
+
+  // ─── Line Height ───────────────────────────
+  const setLineHeight = (value: string) => {
+    if (!editor) return;
+    if (value === "default") {
+      editor.chain().focus().updateAttributes("paragraph", { style: "" }).run();
+    } else {
+      const { from } = editor.state.selection;
+      const node = editor.state.doc.resolve(from).parent;
+      const existingStyle = node.attrs?.style || "";
+      const newStyle = existingStyle.replace(/line-height:[^;]+;?/g, "") + `line-height: ${value};`;
+      editor.chain().focus().updateAttributes("paragraph", { style: newStyle.trim() }).run();
+    }
+    setShowLineHeight(false);
+  };
+
+  // ─── Letter Spacing ───────────────────────────
+  const setLetterSpacing = (value: string) => {
+    if (!editor) return;
+    if (value === "default") {
+      editor.chain().focus().unsetMark("textStyle").run();
+    } else {
+      editor.chain().focus().setMark("textStyle", { letterSpacing: value }).run();
+    }
+    setShowLetterSpacing(false);
   };
 
   // ─── Paywall Insert ───────────────────────────
@@ -345,17 +447,19 @@ export default function AdminContentEditor() {
     }
 
     const body = editor ? editor.getHTML() : "";
-    const data = {
+    const data: any = {
       title: title.trim(),
       slug: slug || slugify(title),
       excerpt: excerpt || undefined,
       body: body || undefined,
+      thumbnailUrl: thumbnailUrl || undefined,
       contentType,
       videoUrl: videoUrl || undefined,
       accessLevel,
       status: publishStatus,
       categoryId: categoryId && categoryId !== "none" ? parseInt(categoryId) : undefined,
       tags: tags || undefined,
+      scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
     };
 
     if (editId) {
@@ -591,6 +695,77 @@ export default function AdminContentEditor() {
                 <ToolbarButton icon={AlignRight} label="오른쪽" onClick={() => editor?.chain().focus().setTextAlign("right").run()} active={editor?.isActive({ textAlign: "right" })} />
                 <ToolbarSeparator />
 
+                {/* Line Height */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowLineHeight(!showLineHeight); setShowLetterSpacing(false); setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); }}
+                    title="줄 간격"
+                    className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 text-[11px]"
+                  >
+                    <span className="text-[11px] font-medium">줄</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showLineHeight && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 w-28">
+                      {[
+                        { label: "기본", value: "default" },
+                        { label: "1.0 (좁게)", value: "1.0" },
+                        { label: "1.2", value: "1.2" },
+                        { label: "1.4", value: "1.4" },
+                        { label: "1.6 (보통)", value: "1.6" },
+                        { label: "1.8", value: "1.8" },
+                        { label: "2.0 (넓게)", value: "2.0" },
+                        { label: "2.4", value: "2.4" },
+                        { label: "2.8", value: "2.8" },
+                      ].map((s) => (
+                        <button
+                          key={s.value}
+                          onClick={() => setLineHeight(s.value)}
+                          className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-gray-100"
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Letter Spacing */}
+                <div className="relative">
+                  <button
+                    onClick={() => { setShowLetterSpacing(!showLetterSpacing); setShowLineHeight(false); setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); }}
+                    title="자간"
+                    className="flex items-center gap-0.5 px-1.5 py-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-gray-700 text-[11px]"
+                  >
+                    <span className="text-[11px] font-medium">자</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {showLetterSpacing && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 w-28">
+                      {[
+                        { label: "기본", value: "default" },
+                        { label: "-2px (좁게)", value: "-2px" },
+                        { label: "-1px", value: "-1px" },
+                        { label: "-0.5px", value: "-0.5px" },
+                        { label: "0px", value: "0px" },
+                        { label: "0.5px", value: "0.5px" },
+                        { label: "1px", value: "1px" },
+                        { label: "2px (넓게)", value: "2px" },
+                        { label: "3px", value: "3px" },
+                      ].map((s) => (
+                        <button
+                          key={s.value}
+                          onClick={() => setLetterSpacing(s.value)}
+                          className="w-full text-left px-3 py-1.5 text-[12px] hover:bg-gray-100"
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <ToolbarSeparator />
+
                 {/* Lists & Indent */}
                 <ToolbarButton icon={List} label="목록" onClick={() => editor?.chain().focus().toggleBulletList().run()} active={editor?.isActive("bulletList")} />
                 <ToolbarButton icon={ListOrdered} label="번호목록" onClick={() => editor?.chain().focus().toggleOrderedList().run()} active={editor?.isActive("orderedList")} />
@@ -674,6 +849,47 @@ export default function AdminContentEditor() {
               </div>
 
               <div className="space-y-5">
+                {/* Thumbnail */}
+                <div className="space-y-1.5">
+                  <Label className="text-[13px] text-gray-700">썸네일 이미지</Label>
+                  {thumbnailUrl ? (
+                    <div className="relative group">
+                      <img src={thumbnailUrl} alt="썸네일" className="w-full h-40 object-cover rounded-lg border border-gray-200" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                        <button onClick={handleThumbnailSelect} className="px-3 py-1.5 bg-white text-gray-800 rounded text-[12px] font-medium hover:bg-gray-100">
+                          변경
+                        </button>
+                        <button onClick={() => setThumbnailUrl("")} className="px-3 py-1.5 bg-red-500 text-white rounded text-[12px] font-medium hover:bg-red-600">
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleThumbnailSelect}
+                      disabled={isUploadingThumbnail}
+                      className="w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-2 hover:border-gray-400 hover:bg-gray-50 transition-colors"
+                    >
+                      {isUploadingThumbnail ? (
+                        <span className="text-[12px] text-gray-500 animate-pulse">업로드 중...</span>
+                      ) : (
+                        <>
+                          <ImageIcon className="h-6 w-6 text-gray-400" />
+                          <span className="text-[12px] text-gray-500">클릭하여 썸네일 업로드</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  <p className="text-[11px] text-gray-400">콘텐츠 목록 카드에 표시됩니다.</p>
+                  <input
+                    ref={thumbnailInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleThumbnailChange}
+                    className="hidden"
+                  />
+                </div>
+
                 {/* Slug */}
                 <div className="space-y-1.5">
                   <Label className="text-[13px] text-gray-700">URL 슬러그</Label>
@@ -757,18 +973,51 @@ export default function AdminContentEditor() {
                   )}
                 </div>
 
+                {/* Scheduled Publish */}
+                <div className="space-y-1.5">
+                  <Label className="text-[13px] text-gray-700">예약 발행</Label>
+                  <Input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    className="text-[13px] bg-white"
+                    min={new Date().toISOString().slice(0, 16)}
+                  />
+                  {scheduledAt && (
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] text-blue-600">
+                        {new Date(scheduledAt).toLocaleString("ko-KR")} 에 자동 발행됩니다.
+                      </p>
+                      <button onClick={() => setScheduledAt("")} className="text-[11px] text-gray-400 hover:text-red-500">
+                        취소
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <Separator />
 
                 {/* Action Buttons */}
                 <div className="space-y-2">
-                  <Button
-                    className="w-full text-[13px] bg-[#2B3A4E] hover:bg-[#1e2b3a]"
-                    onClick={() => handleSave("published")}
-                    disabled={createContent.isPending || updateContent.isPending}
-                  >
-                    <Send className="h-3.5 w-3.5 mr-1.5" />
-                    {editId ? "수정 발행" : "발행하기"}
-                  </Button>
+                  {scheduledAt ? (
+                    <Button
+                      className="w-full text-[13px] bg-blue-600 hover:bg-blue-700"
+                      onClick={() => handleSave("published")}
+                      disabled={createContent.isPending || updateContent.isPending}
+                    >
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                      예약 발행 설정
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full text-[13px] bg-[#2B3A4E] hover:bg-[#1e2b3a]"
+                      onClick={() => handleSave("published")}
+                      disabled={createContent.isPending || updateContent.isPending}
+                    >
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                      {editId ? "수정 발행" : "발행하기"}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     className="w-full text-[13px]"
@@ -786,10 +1035,10 @@ export default function AdminContentEditor() {
       </div>
 
       {/* Close dropdowns on click outside */}
-      {(showColorPicker || showHighlightPicker || showFontSize) && (
+      {(showColorPicker || showHighlightPicker || showFontSize || showLineHeight || showLetterSpacing) && (
         <div
           className="fixed inset-0 z-[5]"
-          onClick={() => { setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); }}
+          onClick={() => { setShowColorPicker(false); setShowHighlightPicker(false); setShowFontSize(false); setShowLineHeight(false); setShowLetterSpacing(false); }}
         />
       )}
     </div>

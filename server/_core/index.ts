@@ -151,6 +151,27 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
 
+  // ── Scheduled: Publish due contents ──
+  app.post("/api/scheduled/publish-due", async (req, res) => {
+    try {
+      const { sdk } = await import("./sdk");
+      const user = await sdk.authenticateRequest(req);
+      if (!user.isCron || !user.taskUid) {
+        return res.status(403).json({ error: "cron-only" });
+      }
+      const { publishDueContents } = await import("../db");
+      const result = await publishDueContents();
+      console.log(`[Scheduled] Published ${result.published} due contents`);
+      res.json({ ok: true, ...result });
+    } catch (error: any) {
+      console.error("[Scheduled] publish-due error:", error);
+      res.status(500).json({
+        error: error.message || "Unknown error",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
   // tRPC API
   app.use(
     "/api/trpc",

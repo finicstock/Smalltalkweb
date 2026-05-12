@@ -47,6 +47,7 @@ export const contents = mysqlTable("contents", {
   authorId: int("authorId"),
   tags: text("tags"),
   viewCount: int("viewCount").default(0).notNull(),
+  scheduledAt: timestamp("scheduledAt"),
   publishedAt: timestamp("publishedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

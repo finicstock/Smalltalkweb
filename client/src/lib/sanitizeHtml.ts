@@ -40,6 +40,8 @@ const ALLOWED_ATTRS = new Set([
   "alt",
   "class",
   "colspan",
+  "data-quote-block",
+  "data-quote-style",
   "data-youtube-video",
   "download",
   "href",

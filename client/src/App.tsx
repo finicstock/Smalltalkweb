@@ -15,6 +15,7 @@ const MyPage = lazy(() => import("./pages/MyPage"));
 const PreviewPage = lazy(() => import("./pages/PreviewPage"));
 const AuthorProfile = lazy(() => import("./pages/AuthorProfile"));
 const PlaylistDetail = lazy(() => import("./pages/PlaylistDetail"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Admin Pages
@@ -57,6 +58,8 @@ function Router() {
       <Route path="/preview/:token" component={PreviewPage} />
       <Route path="/author" component={AuthorProfile} />
       <Route path="/playlists/:slug" component={PlaylistDetail} />
+      <Route path="/terms" component={LegalPage} />
+      <Route path="/privacy" component={LegalPage} />
 
       {/* Admin - Full screen editor (no AdminLayout) */}
       <Route path="/admin/editor/new" component={AdminContentEditor} />

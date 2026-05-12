@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { Link, useSearch } from "wouter";
 import { useState, useMemo } from "react";
-import { Search, Lock, Eye, TrendingUp, PlayCircle, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Lock, Eye, TrendingUp, PlayCircle, FileText, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -40,10 +40,19 @@ export default function Contents() {
   });
 
   const totalPages = Math.ceil((totalCount ?? 0) / ITEMS_PER_PAGE);
+  const hasActiveFilters = !!submittedSearch || selectedCategory !== undefined || contentType !== undefined;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmittedSearch(searchQuery);
+    setPage(0);
+  };
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setSubmittedSearch("");
+    setSelectedCategory(undefined);
+    setContentType(undefined);
     setPage(0);
   };
 
@@ -108,6 +117,22 @@ export default function Contents() {
                   {cat.name}
                 </Button>
               ))}
+            </div>
+          )}
+
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">적용된 조건</span>
+              {submittedSearch && <Badge variant="secondary">검색: {submittedSearch}</Badge>}
+              {contentType && <Badge variant="secondary">{contentType === "article" ? "아티클" : "영상"}</Badge>}
+              {selectedCategory !== undefined && (
+                <Badge variant="secondary">
+                  {categories?.find((cat) => cat.id === selectedCategory)?.name ?? "카테고리"}
+                </Badge>
+              )}
+              <Button variant="ghost" size="sm" className="ml-auto h-7 gap-1 px-2" onClick={resetFilters}>
+                <X className="h-3.5 w-3.5" /> 초기화
+              </Button>
             </div>
           )}
         </div>

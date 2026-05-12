@@ -266,6 +266,187 @@
   background: #f8fafc;
   color: #374151;
 }
+.editor-content .tiptap .quote-node,
+.content-body .quote-block {
+  position: relative;
+  margin: 1.25em 0;
+}
+.editor-content .tiptap .quote-node-shell,
+.content-body .quote-block {
+  position: relative;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.editor-content .tiptap .quote-node.is-selected .quote-node-shell,
+.editor-content .tiptap .quote-node:hover .quote-node-shell {
+  outline: 2px solid rgba(43, 58, 78, 0.2);
+  outline-offset: 3px;
+}
+.editor-content .tiptap .quote-node-content p,
+.content-body .quote-block p {
+  margin: 0.35em 0;
+}
+.editor-content .tiptap .quote-node-content p:first-child,
+.content-body .quote-block p:first-child {
+  margin-top: 0;
+}
+.editor-content .tiptap .quote-node-content p:last-child,
+.content-body .quote-block p:last-child {
+  margin-bottom: 0;
+}
+.editor-content .tiptap .quote-node-drag {
+  position: absolute;
+  left: -28px;
+  top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, 3px);
+  gap: 3px;
+  width: 22px;
+  height: 28px;
+  place-content: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #9ca3af;
+  cursor: grab;
+  opacity: 0;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+.editor-content .tiptap .quote-node:hover .quote-node-drag,
+.editor-content .tiptap .quote-node.is-selected .quote-node-drag {
+  opacity: 1;
+}
+.editor-content .tiptap .quote-node-drag:active {
+  cursor: grabbing;
+}
+.editor-content .tiptap .quote-node-drag span {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.editor-content .tiptap .quote-node-tools {
+  position: absolute;
+  right: 8px;
+  top: -16px;
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+}
+.editor-content .tiptap .quote-node:hover .quote-node-tools,
+.editor-content .tiptap .quote-node.is-selected .quote-node-tools {
+  display: flex;
+}
+.editor-content .tiptap .quote-node-tools button {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #4b5563;
+}
+.editor-content .tiptap .quote-node-tools button:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+.editor-content .tiptap .quote-node-basic .quote-node-shell,
+.content-body .quote-block-basic {
+  border-left: 4px solid #2B3A4E;
+  border-radius: 0 8px 8px 0;
+  padding: 0.9em 1.1em;
+  background: #f8fafc;
+  color: #374151;
+}
+.editor-content .tiptap .quote-node-quotation .quote-node-shell,
+.content-body .quote-block-quotation {
+  padding: 1.1em 1.25em 1.1em 3em;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #374151;
+  font-size: 1.08em;
+  font-weight: 600;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+.editor-content .tiptap .quote-node-quotation .quote-node-shell::before,
+.content-body .quote-block-quotation::before {
+  content: "“";
+  position: absolute;
+  left: 0.42em;
+  top: 0.05em;
+  color: #9ca3af;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 3.1em;
+  line-height: 1;
+}
+.editor-content .tiptap .quote-node-vertical-line .quote-node-shell,
+.content-body .quote-block-vertical-line {
+  border-left: 4px solid #2B3A4E;
+  padding: 12px 16px;
+  background: #f8fafc;
+  color: #1f2937;
+}
+.editor-content .tiptap .quote-node-speech-bubble .quote-node-shell,
+.content-body .quote-block-speech-bubble {
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: #ffffff;
+  color: #1f2937;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+}
+.editor-content .tiptap .quote-node-speech-bubble .quote-node-shell::after,
+.content-body .quote-block-speech-bubble::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  bottom: -8px;
+  width: 14px;
+  height: 14px;
+  border-right: 1px solid #d1d5db;
+  border-bottom: 1px solid #d1d5db;
+  background: #fff;
+  transform: rotate(45deg);
+}
+.editor-content .tiptap .quote-node-quote-line .quote-node-shell,
+.content-body .quote-block-quote-line {
+  border-top: 1px solid #d1d5db;
+  border-bottom: 1px solid #d1d5db;
+  padding: 18px 20px;
+  color: #374151;
+  font-size: 18px;
+  font-weight: 600;
+}
+.editor-content .tiptap .quote-node-quote-line .quote-node-shell::before,
+.content-body .quote-block-quote-line::before {
+  content: "“";
+  margin-right: 8px;
+  color: #9ca3af;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.9em;
+  line-height: 0;
+  vertical-align: -0.35em;
+}
+.editor-content .tiptap .quote-node-post-it .quote-node-shell,
+.content-body .quote-block-post-it {
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 14px 16px;
+  background: #fffbeb;
+  color: #713f12;
+  box-shadow: 6px 8px 0 rgba(253, 230, 138, 0.5);
+}
+.editor-content .tiptap .quote-node-frame .quote-node-shell,
+.content-body .quote-block-frame {
+  border: 2px solid #9ca3af;
+  border-radius: 4px;
+  padding: 16px 18px;
+  background: #ffffff;
+  color: #111827;
+}
 .editor-content .tiptap hr {
   border: none;
   border-top: 2px dashed #e5e7eb;

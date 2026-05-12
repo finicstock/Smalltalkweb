@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Node, NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, mergeAttributes } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Paragraph } from "@tiptap/extension-paragraph";
 import ImageResize from "tiptap-extension-resize-image";
@@ -31,7 +31,7 @@ import {
   Highlighter, ChevronDown, Plus, Trash2, Maximize2, Minimize2, FileText,
   Clock, History, Share2, BookTemplate, CircleDot, Square, Triangle, Hash
 } from "lucide-react";
-import { useState, useEffect, useCallback, useRef, useMemo, type CSSProperties } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { useLocation, useRoute } from "wouter";
 import { toast } from "sonner";
@@ -77,6 +77,129 @@ function escapeHtml(text: string) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+function QuoteBlockView(props: any) {
+  const styleName = props.node.attrs.styleName || "basic";
+  const setNodeSelection = () => {
+    if (typeof props.getPos === "function") {
+      props.editor.commands.setNodeSelection(props.getPos());
+    }
+  };
+
+  const copyQuote = async () => {
+    try {
+      await navigator.clipboard.writeText(props.node.textContent || "");
+      setNodeSelection();
+      toast.success("인용구를 복사했습니다.");
+    } catch {
+      toast.error("인용구 복사에 실패했습니다.");
+    }
+  };
+
+  const pasteQuote = async () => {
+    try {
+      const text = (await navigator.clipboard.readText()).trim();
+      if (!text || typeof props.getPos !== "function") {
+        toast.info("붙여넣을 텍스트가 없습니다.");
+        return;
+      }
+      props.editor
+        .chain()
+        .focus()
+        .insertContentAt(props.getPos() + props.node.nodeSize, {
+          type: "quoteBlock",
+          attrs: { styleName },
+          content: text.split(/\n+/).map((line: string) => ({
+            type: "paragraph",
+            content: [{ type: "text", text: line }],
+          })),
+        })
+        .run();
+      toast.success("클립보드 텍스트를 인용구로 붙여넣었습니다.");
+    } catch {
+      toast.error("클립보드 접근에 실패했습니다.");
+    }
+  };
+
+  return (
+    <NodeViewWrapper
+      as="div"
+      data-quote-block
+      data-quote-style={styleName}
+      className={`quote-node quote-node-${styleName} ${props.selected ? "is-selected" : ""}`}
+      onClick={(event: ReactMouseEvent) => {
+        const target = event.target as HTMLElement;
+        if (target.closest("[data-quote-toolbar]") || target.closest(".quote-node-content")) return;
+        setNodeSelection();
+      }}
+    >
+      <div className="quote-node-shell">
+        <button
+          type="button"
+          className="quote-node-drag"
+          data-drag-handle
+          title="인용구 선택 및 이동"
+          onMouseDown={setNodeSelection}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        <NodeViewContent className="quote-node-content" />
+        <div className="quote-node-tools" data-quote-toolbar contentEditable={false}>
+          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={copyQuote}>
+            복사
+          </button>
+          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={pasteQuote}>
+            붙여넣기
+          </button>
+          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={props.deleteNode}>
+            삭제
+          </button>
+        </div>
+      </div>
+    </NodeViewWrapper>
+  );
+}
+
+const QuoteBlock = Node.create({
+  name: "quoteBlock",
+  group: "block",
+  content: "block+",
+  defining: true,
+  selectable: true,
+  draggable: true,
+
+  addAttributes() {
+    return {
+      styleName: {
+        default: "basic",
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-quote-style") || "basic",
+        renderHTML: (attributes: Record<string, any>) => ({ "data-quote-style": attributes.styleName || "basic" }),
+      },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: "div[data-quote-block]" }];
+  },
+
+  renderHTML({ HTMLAttributes }: { HTMLAttributes: Record<string, any> }) {
+    const styleName = HTMLAttributes["data-quote-style"] || "basic";
+    return [
+      "div",
+      mergeAttributes(HTMLAttributes, {
+        "data-quote-block": "",
+        class: `quote-block quote-block-${styleName}`,
+      }),
+      0,
+    ];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(QuoteBlockView);
+  },
+});
 
 function slugify(text: string) {
   return text
@@ -203,6 +326,7 @@ export default function AdminContentEditor() {
           };
         },
       }),
+      QuoteBlock,
       ImageResize.configure({ inline: false, allowBase64: true }),
       Placeholder.configure({ placeholder: "본문을 작성하세요..." }),
       Underline,
@@ -529,11 +653,6 @@ export default function AdminContentEditor() {
     if (!editor) return;
     setShowQuoteStyles(false);
 
-    if (style.value === "blockquote") {
-      editor.chain().focus().toggleBlockquote().run();
-      return;
-    }
-
     const { from, to, empty } = editor.state.selection;
     const selectedText = empty
       ? "인용문을 입력하세요"
@@ -541,7 +660,16 @@ export default function AdminContentEditor() {
 
     const chain = editor.chain().focus();
     if (!empty) chain.deleteSelection();
-    chain.insertContent(`<p style="${style.css}">${escapeHtml(selectedText)}</p>`).run();
+    chain
+      .insertContent({
+        type: "quoteBlock",
+        attrs: { styleName: style.value },
+        content: selectedText.split(/\n+/).map((line) => ({
+          type: "paragraph",
+          content: [{ type: "text", text: line }],
+        })),
+      })
+      .run();
   };
 
   // ─── Text Color ───────────────────────────
@@ -1262,7 +1390,7 @@ export default function AdminContentEditor() {
                       setShowQuoteStyles(next);
                     }}
                     title="인용구 스타일"
-                    className={`flex items-center gap-0.5 px-1.5 py-1.5 rounded transition-colors ${editor?.isActive("blockquote") ? "bg-gray-200 text-gray-900" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"}`}
+                    className={`flex items-center gap-0.5 px-1.5 py-1.5 rounded transition-colors ${editor?.isActive("quoteBlock") || editor?.isActive("blockquote") ? "bg-gray-200 text-gray-900" : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"}`}
                   >
                     <Quote className="h-4 w-4" />
                     <ChevronDown className="h-3 w-3" />
@@ -1281,7 +1409,7 @@ export default function AdminContentEditor() {
                             className="block text-[12px] text-gray-700"
                             style={style.previewStyle}
                           >
-                            인용문 미리보기
+                            {style.value === "quotation" ? "“ 인용문 미리보기" : "인용문 미리보기"}
                           </span>
                         </button>
                       ))}
@@ -1835,7 +1963,7 @@ const FONT_FAMILIES = [
 
 const QUOTE_STYLES: QuoteStyle[] = [
   {
-    value: "blockquote",
+    value: "basic",
     label: "기본 인용문",
     description: "일반 블록 인용",
     css: "",
@@ -1843,6 +1971,18 @@ const QUOTE_STYLES: QuoteStyle[] = [
       borderLeft: "3px solid #d1d5db",
       color: "#6b7280",
       paddingLeft: "12px",
+    },
+  },
+  {
+    value: "quotation",
+    label: "따옴표",
+    description: "큰 따옴표로 핵심 문장 강조",
+    css: "",
+    previewStyle: {
+      position: "relative",
+      padding: "10px 12px 10px 28px",
+      color: "#4b5563",
+      fontWeight: 600,
     },
   },
   {
@@ -2006,7 +2146,8 @@ function markdownToHtml(md: string): string {
       return `<ol>${items}</ol>`;
     }
     if (p.startsWith("> ")) {
-      return `<blockquote><p>${p.replace(/^> /gm, "")}</p></blockquote>`;
+      const quoteText = p.replace(/^> /gm, "");
+      return `<div data-quote-block data-quote-style="basic" class="quote-block quote-block-basic"><p>${quoteText}</p></div>`;
     }
     return `<p>${p.replace(/\n/g, "<br>")}</p>`;
   }).join("");
@@ -2016,6 +2157,15 @@ function markdownToHtml(md: string): string {
 function htmlToMarkdown(html: string): string {
   if (!html) return "";
   let md = html;
+  // Quote blocks
+  md = md.replace(/<div[^>]*data-quote-block[^>]*>([\s\S]*?)<\/div>/gi, (_, content) => {
+    const text = content
+      .replace(/<\/p>\s*<p[^>]*>/gi, "\n")
+      .replace(/<\/?p[^>]*>/gi, "")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+    return text.split(/\n+/).map((line: string) => `> ${line}`).join("\n") + "\n\n";
+  });
   // Remove wrapper tags
   md = md.replace(/<\/?(div|span)[^>]*>/g, "");
   // Headers

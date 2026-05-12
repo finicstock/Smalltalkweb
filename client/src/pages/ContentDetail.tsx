@@ -141,6 +141,7 @@ export default function ContentDetail() {
   const { theme, toggleTheme } = useTheme();
   const bodyRef = useRef<HTMLDivElement>(null);
   const [activeHeadingId, setActiveHeadingId] = useState("");
+  const [readingProgress, setReadingProgress] = useState(0);
 
   const { data: content, isLoading } = trpc.content.getBySlug.useQuery(
     { slug: slug ?? "" },
@@ -161,6 +162,7 @@ export default function ContentDetail() {
   }, [content?.id]);
 
   const hasAccess = content?.accessLevel === "free" || !!subscription;
+  const isPremiumLocked = content?.accessLevel === "paid" && !hasAccess;
 
   // 목차 추출
   const { toc, processedBody } = useMemo(() => {
@@ -190,6 +192,25 @@ export default function ContentDetail() {
     window.addEventListener("scroll", handler, { passive: true });
     return () => window.removeEventListener("scroll", handler);
   }, [toc]);
+
+  useEffect(() => {
+    if (!hasAccess) {
+      setReadingProgress(0);
+      return;
+    }
+    const handler = () => {
+      const total = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = total > 0 ? Math.min(100, Math.max(0, (window.scrollY / total) * 100)) : 0;
+      setReadingProgress(progress);
+    };
+    handler();
+    window.addEventListener("scroll", handler, { passive: true });
+    window.addEventListener("resize", handler);
+    return () => {
+      window.removeEventListener("scroll", handler);
+      window.removeEventListener("resize", handler);
+    };
+  }, [hasAccess, content?.id]);
 
   if (isLoading) {
     return (
@@ -227,6 +248,16 @@ export default function ContentDetail() {
 
   return (
     <Layout>
+      {hasAccess && (
+        <div className="fixed left-0 right-0 top-16 z-40 h-1 bg-transparent">
+          <div
+            className="h-full bg-primary transition-[width] duration-150"
+            style={{ width: `${readingProgress}%` }}
+            aria-hidden="true"
+          />
+        </div>
+      )}
+
       {/* 목차 사이드바 */}
       {hasAccess && <TableOfContents items={toc} activeId={activeHeadingId} />}
 
@@ -385,6 +416,22 @@ export default function ContentDetail() {
           <ShareButtons title={content.title} />
         </div>
       </article>
+
+      {isPremiumLocked && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-4 py-3 shadow-[0_-10px_30px_rgba(15,23,42,0.12)] backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-4xl items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-foreground">프리미엄 콘텐츠</p>
+              <p className="truncate text-xs text-muted-foreground">구독하고 전체 내용을 이어서 읽으세요.</p>
+            </div>
+            <Link href="/pricing">
+              <Button size="sm" className="gap-1.5">
+                <Crown className="h-3.5 w-3.5" /> 구독하기
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }

@@ -44,6 +44,7 @@ function Router() {
 
       {/* Admin */}
       <Route path="/admin">{() => <AdminRoute component={AdminDashboard} />}</Route>
+      <Route path="/admin/contents/new">{() => <AdminRoute component={AdminContents} />}</Route>
       <Route path="/admin/contents">{() => <AdminRoute component={AdminContents} />}</Route>
       <Route path="/admin/categories">{() => <AdminRoute component={AdminCategories} />}</Route>
       <Route path="/admin/playlists">{() => <AdminRoute component={AdminPlaylists} />}</Route>

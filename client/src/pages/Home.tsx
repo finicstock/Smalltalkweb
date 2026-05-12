@@ -18,7 +18,7 @@ function HeroSection() {
             <img src={LOGO_URL} alt="닉스의 스몰톡" className="h-28 md:h-36 w-auto" />
           </div>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground leading-tight">
-            투자의 본질을<br className="hidden sm:block" /> 이야기합니다
+            투자 대회 1위 출신 닉스가 말하는<br className="hidden sm:block" /> 투자에 대한 작은 이야기, 지금 함께하세요.
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             시장의 소음을 걷어내고, 진짜 중요한 것에 집중합니다.

@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Image from "@tiptap/extension-image";
+import ImageResize from "tiptap-extension-resize-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
@@ -78,7 +78,7 @@ export default function AdminContentEditor() {
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
-      Image.configure({ inline: false, allowBase64: true }),
+      ImageResize.configure({ inline: false, allowBase64: true }),
       Placeholder.configure({ placeholder: "본문을 작성하세요..." }),
       Underline,
       TextAlign.configure({ types: ["heading", "paragraph"] }),

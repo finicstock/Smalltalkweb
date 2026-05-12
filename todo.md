@@ -99,3 +99,6 @@
 
 ## 버그 수정
 - [x] tRPC API 호출 시 HTML 응답 반환 에러 수정 (content-type 검증 + retry 로직 추가)
+
+## 에디터 이미지 크기 조절
+- [x] 이미지 업로드 후 크기 조절(리사이즈) 기능 추가 (tiptap-extension-resize-image)

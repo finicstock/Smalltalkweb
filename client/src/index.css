@@ -167,3 +167,74 @@
     }
   }
 }
+
+
+/* ─── Tiptap Image Resize Styles ─── */
+.tiptap .image-resizer {
+  display: inline-flex;
+  position: relative;
+  flex-grow: 0;
+  cursor: default;
+}
+
+.tiptap .image-resizer img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.25rem;
+}
+
+.tiptap .image-resizer.selected img {
+  outline: 2px solid oklch(0.546 0.245 262.881);
+  outline-offset: 2px;
+}
+
+.tiptap .image-resizer .resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: oklch(0.546 0.245 262.881);
+  border: 2px solid white;
+  border-radius: 50%;
+  z-index: 10;
+}
+
+.tiptap .image-resizer .resize-handle.nw { top: -5px; left: -5px; cursor: nw-resize; }
+.tiptap .image-resizer .resize-handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
+.tiptap .image-resizer .resize-handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+.tiptap .image-resizer .resize-handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
+
+.tiptap .image-resizer .position-controls {
+  position: absolute;
+  top: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+}
+
+.tiptap .image-resizer .position-controls button {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #555;
+}
+
+.tiptap .image-resizer .position-controls button:hover {
+  background: #f0f0f0;
+}
+
+.tiptap .image-resizer .position-controls button.active {
+  background: oklch(0.546 0.245 262.881);
+  color: white;
+}

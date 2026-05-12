@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import { Link, useSearch } from "wouter";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Lock, Eye, TrendingUp, PlayCircle } from "lucide-react";
+import { Search, Lock, Eye, TrendingUp, PlayCircle, Clock } from "lucide-react";
+import { estimateReadingMinutes, formatContentDate, getAccessLabel, getContentTypeLabel } from "@/lib/contentUtils";
 
 export default function SearchPage() {
   const searchString = useSearch();
@@ -92,16 +93,17 @@ export default function SearchPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        {item.accessLevel === "paid" && (
-                          <Badge variant="secondary" className="bg-primary text-primary-foreground text-xs gap-0.5">
-                            <Lock className="h-2.5 w-2.5" /> 유료
-                          </Badge>
-                        )}
-                        {item.contentType === "video" && (
-                          <Badge variant="secondary" className="text-xs gap-0.5">
-                            <PlayCircle className="h-2.5 w-2.5" /> 영상
-                          </Badge>
-                        )}
+                        <Badge variant={item.accessLevel === "paid" ? "default" : "secondary"} className="text-xs gap-0.5">
+                          {item.accessLevel === "paid" && <Lock className="h-2.5 w-2.5" />}
+                          {getAccessLabel(item.accessLevel)}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs gap-0.5">
+                          {item.contentType === "video" && <PlayCircle className="h-2.5 w-2.5" />}
+                          {getContentTypeLabel(item.contentType)}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs gap-0.5">
+                          <Clock className="h-2.5 w-2.5" /> 완독 {estimateReadingMinutes(item.body ?? item.excerpt)}분
+                        </Badge>
                       </div>
                       <h3 className="font-semibold text-card-foreground group-hover:text-primary transition-colors line-clamp-1">
                         {item.title}
@@ -110,8 +112,8 @@ export default function SearchPage() {
                         <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{item.excerpt}</p>
                       )}
                       <div className="flex items-center gap-3 text-xs text-muted-foreground mt-2">
-                        <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {item.viewCount}</span>
-                        {item.publishedAt && <span>{new Date(item.publishedAt).toLocaleDateString("ko-KR")}</span>}
+                        <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {(item.viewCount ?? 0).toLocaleString()}</span>
+                        {item.publishedAt && <span>{formatContentDate(item.publishedAt)}</span>}
                       </div>
                     </div>
                   </CardContent>

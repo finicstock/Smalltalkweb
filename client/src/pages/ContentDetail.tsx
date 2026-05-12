@@ -7,12 +7,13 @@ import { Separator } from "@/components/ui/separator";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useParams, Link } from "wouter";
-import { Lock, Eye, Calendar, ArrowLeft, PlayCircle, Crown, List, Sun, Moon, Share2, Copy, Check } from "lucide-react";
+import { Lock, Eye, Calendar, ArrowLeft, PlayCircle, Crown, List, Sun, Moon, Share2, Copy, Check, Clock, MessageCircle, ArrowRight } from "lucide-react";
 import { getLoginUrl } from "@/const";
 import { Streamdown } from "streamdown";
 import { useTheme } from "@/contexts/ThemeContext";
 import { toast } from "sonner";
 import { sanitizeHtml } from "@/lib/sanitizeHtml";
+import { estimateReadingMinutes, formatLongContentDate, getAccessLabel, getContentTypeLabel } from "@/lib/contentUtils";
 
 // ─── 목차 항목 타입 ─────────────────────────────────────────────
 interface TocItem {
@@ -20,6 +21,8 @@ interface TocItem {
   text: string;
   level: number;
 }
+
+type ArticleFontSize = "comfortable" | "large" | "xlarge";
 
 // ─── HTML에서 목차 추출 ──────────────────────────────────────────
 function extractToc(html: string): TocItem[] {
@@ -135,6 +138,99 @@ function TableOfContents({ items, activeId }: { items: TocItem[]; activeId: stri
   );
 }
 
+function FontSizeControls({ value, onChange }: { value: ArticleFontSize; onChange: (value: ArticleFontSize) => void }) {
+  const options: Array<{ value: ArticleFontSize; label: string; className: string }> = [
+    { value: "comfortable", label: "가", className: "text-xs" },
+    { value: "large", label: "가", className: "text-sm" },
+    { value: "xlarge", label: "가", className: "text-base" },
+  ];
+
+  return (
+    <div className="hidden items-center gap-1 rounded-full border border-border bg-background p-1 sm:flex" aria-label="글씨 크기 조정">
+      <span className="px-2 text-[11px] text-muted-foreground">글씨</span>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={`flex h-7 w-7 items-center justify-center rounded-full font-semibold transition-colors ${option.className} ${
+            value === option.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+          title={`본문 글씨 크기 ${option.value === "comfortable" ? "기본" : option.value === "large" ? "크게" : "더 크게"}`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SubscribeAfterRead({ popularContents }: { popularContents?: any[] }) {
+  const previewItems = popularContents?.slice(0, 3) ?? [];
+
+  return (
+    <Card className="mt-12 border-primary/20 bg-primary/5">
+      <CardContent className="grid gap-6 p-6 md:grid-cols-[1.2fr_0.8fr] md:p-8">
+        <div className="space-y-4">
+          <Badge className="gap-1 bg-primary text-primary-foreground">
+            <Crown className="h-3.5 w-3.5" /> 프리미엄 구독
+          </Badge>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-foreground">콘텐츠가 마음에 드셨나요?</h2>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              구독하면 프리미엄 글, 주간 투자 리포트, 텔레그램 채널까지 이어서 이용할 수 있습니다.
+            </p>
+          </div>
+          <Link href="/pricing">
+            <Button className="gap-2">
+              구독 혜택 보기 <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+        {previewItems.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-foreground">많이 읽는 글</p>
+            <div className="space-y-2">
+              {previewItems.map((item, index) => (
+                <Link key={item.id} href={`/contents/${item.slug}`}>
+                  <div className="rounded-lg border border-border bg-background/80 p-3 transition-colors hover:border-primary/40">
+                    <div className="flex gap-3">
+                      <span className="text-sm font-bold text-primary">{index + 1}</span>
+                      <div className="min-w-0">
+                        <p className="line-clamp-2 text-sm font-medium text-foreground">{item.title}</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">조회 {(item.viewCount ?? 0).toLocaleString()} · 완독 {estimateReadingMinutes(item.body ?? item.excerpt)}분</p>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CommentPolicyBox() {
+  return (
+    <Card className="mt-6 border-dashed bg-muted/30">
+      <CardContent className="flex gap-3 p-4">
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground">
+          <MessageCircle className="h-4 w-4" />
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-foreground">댓글 기능 안내</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            투자 콘텐츠의 성격상 개별 종목 상담이나 양방향 투자 권유로 오해될 수 있는 댓글 기능은 운영하지 않습니다.
+            문의와 구독 관련 안내는 별도 고객 응대 채널로 받을 수 있도록 정리할 예정입니다.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ContentDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { user, isAuthenticated } = useAuth();
@@ -142,6 +238,7 @@ export default function ContentDetail() {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [activeHeadingId, setActiveHeadingId] = useState("");
   const [readingProgress, setReadingProgress] = useState(0);
+  const [fontSize, setFontSize] = useState<ArticleFontSize>("comfortable");
 
   const { data: content, isLoading } = trpc.content.getBySlug.useQuery(
     { slug: slug ?? "" },
@@ -152,6 +249,7 @@ export default function ContentDetail() {
     enabled: isAuthenticated,
     retry: false,
   });
+  const { data: popularContents } = trpc.content.listPopular.useQuery({ limit: 4 });
 
   // 조회수 기록
   const recordView = trpc.stats.recordView.useMutation();
@@ -163,6 +261,12 @@ export default function ContentDetail() {
 
   const hasAccess = content?.accessLevel === "free" || !!subscription;
   const isPremiumLocked = content?.accessLevel === "paid" && !hasAccess;
+  const readingMinutes = useMemo(() => estimateReadingMinutes(content?.body ?? content?.excerpt), [content?.body, content?.excerpt]);
+  const articleFontClass = {
+    comfortable: "prose-lg",
+    large: "prose-xl",
+    xlarge: "prose-2xl",
+  }[fontSize];
 
   // 목차 추출
   const { toc, processedBody } = useMemo(() => {
@@ -269,13 +373,16 @@ export default function ContentDetail() {
               <ArrowLeft className="h-4 w-4" /> 목록으로
             </Button>
           </Link>
-          <button
-            onClick={toggleTheme}
-            className="h-8 w-8 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
-            title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
-          >
-            {theme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
-          </button>
+          <div className="flex items-center gap-2">
+            {hasAccess && <FontSizeControls value={fontSize} onChange={setFontSize} />}
+            <button
+              onClick={toggleTheme}
+              className="h-8 w-8 rounded-full border border-border flex items-center justify-center hover:bg-muted transition-colors"
+              title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-muted-foreground" />}
+            </button>
+          </div>
         </div>
 
         {/* Header */}
@@ -283,14 +390,23 @@ export default function ContentDetail() {
           <div className="flex items-center gap-2 mb-3">
             {content.accessLevel === "paid" && (
               <Badge variant="secondary" className="bg-primary text-primary-foreground text-xs gap-1">
-                <Lock className="h-3 w-3" /> 유료
+                <Lock className="h-3 w-3" /> {getAccessLabel(content.accessLevel)}
               </Badge>
+            )}
+            {content.accessLevel === "free" && (
+              <Badge variant="secondary" className="text-xs">{getAccessLabel(content.accessLevel)}</Badge>
             )}
             {content.contentType === "video" && (
               <Badge variant="secondary" className="text-xs gap-1">
-                <PlayCircle className="h-3 w-3" /> 영상
+                <PlayCircle className="h-3 w-3" /> {getContentTypeLabel(content.contentType)}
               </Badge>
             )}
+            {content.contentType === "article" && (
+              <Badge variant="outline" className="text-xs">{getContentTypeLabel(content.contentType)}</Badge>
+            )}
+            <Badge variant="outline" className="gap-1 text-xs">
+              <Clock className="h-3 w-3" /> 완독 {readingMinutes}분
+            </Badge>
           </div>
           <h1 className="text-2xl md:text-4xl font-bold text-foreground leading-tight mb-4">
             {content.title}
@@ -303,7 +419,7 @@ export default function ContentDetail() {
               {content.publishedAt && (
                 <span className="flex items-center gap-1.5">
                   <Calendar className="h-4 w-4" />
-                  {new Date(content.publishedAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
+                  {formatLongContentDate(content.publishedAt)}
                 </span>
               )}
               <span className="flex items-center gap-1.5">
@@ -348,13 +464,13 @@ export default function ContentDetail() {
         {hasAccess ? (
           <div
             ref={bodyRef}
-            className="prose prose-lg max-w-none text-foreground
+            className={`prose ${articleFontClass} max-w-none text-foreground
               prose-headings:text-foreground prose-p:text-foreground/90
               prose-a:text-primary prose-strong:text-foreground
               prose-blockquote:border-primary/30 prose-blockquote:text-muted-foreground
               prose-code:text-primary prose-code:bg-primary/5 prose-code:rounded prose-code:px-1
               content-body
-            "
+            `}
           >
             {content.body?.trim().startsWith('<') ? (
               <div dangerouslySetInnerHTML={{ __html: processedBody }} />
@@ -405,6 +521,12 @@ export default function ContentDetail() {
             </Card>
           </div>
         )}
+
+        {hasAccess && !subscription && (
+          <SubscribeAfterRead popularContents={popularContents?.filter((item) => item.slug !== content.slug)} />
+        )}
+
+        <CommentPolicyBox />
 
         {/* 하단 공유 버튼 */}
         <div className="mt-12 pt-8 border-t border-border flex items-center justify-between">

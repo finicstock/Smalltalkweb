@@ -3,8 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Eye, FileText, Lock, PlayCircle, TrendingUp } from "lucide-react";
+import { ArrowLeft, Clock, Eye, FileText, Lock, PlayCircle, TrendingUp } from "lucide-react";
 import { Link, useRoute } from "wouter";
+import { estimateReadingMinutes, formatContentDate, getAccessLabel, getContentTypeLabel } from "@/lib/contentUtils";
 
 export default function PlaylistDetail() {
   const [, params] = useRoute("/playlists/:slug");
@@ -103,19 +104,20 @@ export default function PlaylistDetail() {
                       </div>
                     )}
                     <div className="absolute top-3 left-3 flex gap-2">
-                      {item.accessLevel === "paid" && (
-                        <Badge variant="secondary" className="bg-primary text-primary-foreground text-xs gap-1">
-                          <Lock className="h-3 w-3" /> 유료
-                        </Badge>
-                      )}
-                      {item.contentType === "video" && (
-                        <Badge variant="secondary" className="text-xs gap-1">
-                          <PlayCircle className="h-3 w-3" /> 영상
-                        </Badge>
-                      )}
+                      <Badge variant={item.accessLevel === "paid" ? "default" : "secondary"} className="text-xs gap-1">
+                        {item.accessLevel === "paid" && <Lock className="h-3 w-3" />}
+                        {getAccessLabel(item.accessLevel)}
+                      </Badge>
+                      <Badge variant="secondary" className="text-xs gap-1">
+                        {item.contentType === "video" ? <PlayCircle className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                        {getContentTypeLabel(item.contentType)}
+                      </Badge>
                     </div>
                   </div>
-                  <CardContent className="p-5 space-y-2">
+                  <CardContent className="p-5 space-y-3">
+                    <Badge variant="outline" className="w-fit gap-1 text-[11px]">
+                      <Clock className="h-3 w-3" /> 완독 {estimateReadingMinutes(item.body ?? item.excerpt)}분
+                    </Badge>
                     <h3 className="font-semibold text-card-foreground line-clamp-2 group-hover:text-primary transition-colors">
                       {item.title}
                     </h3>
@@ -124,10 +126,10 @@ export default function PlaylistDetail() {
                     )}
                     <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
                       <span className="flex items-center gap-1">
-                        <Eye className="h-3 w-3" /> {item.viewCount}
+                        <Eye className="h-3 w-3" /> {(item.viewCount ?? 0).toLocaleString()}
                       </span>
                       {item.publishedAt && (
-                        <span>{new Date(item.publishedAt).toLocaleDateString("ko-KR")}</span>
+                        <span>{formatContentDate(item.publishedAt)}</span>
                       )}
                     </div>
                   </CardContent>

@@ -7,9 +7,72 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
 import { Link, useSearch } from "wouter";
 import { useState, useMemo } from "react";
-import { Search, Lock, Eye, TrendingUp, PlayCircle, FileText, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Search, Lock, Eye, TrendingUp, PlayCircle, FileText, ChevronLeft, ChevronRight, X, Clock, Calendar, Flame, Layers, BookOpen } from "lucide-react";
+import { estimateReadingMinutes, formatContentDate, getAccessLabel, getContentTypeLabel } from "@/lib/contentUtils";
 
 const ITEMS_PER_PAGE = 12;
+
+function ContentCard({ item, categoryName }: { item: any; categoryName?: string }) {
+  const readingMinutes = estimateReadingMinutes(item.body ?? item.excerpt);
+
+  return (
+    <Link href={`/contents/${item.slug}`}>
+      <Card className="overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-pointer h-full">
+        <div className="relative h-48 bg-muted overflow-hidden">
+          {item.thumbnailUrl ? (
+            <img
+              src={item.thumbnailUrl}
+              alt={item.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-primary/5">
+              {item.contentType === "video" ? (
+                <PlayCircle className="h-12 w-12 text-primary/30" />
+              ) : (
+                <TrendingUp className="h-12 w-12 text-primary/30" />
+              )}
+            </div>
+          )}
+          <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+            <Badge variant={item.accessLevel === "paid" ? "default" : "secondary"} className="text-xs gap-1">
+              {item.accessLevel === "paid" && <Lock className="h-3 w-3" />}
+              {getAccessLabel(item.accessLevel)}
+            </Badge>
+            <Badge variant="secondary" className="text-xs gap-1">
+              {item.contentType === "video" ? <PlayCircle className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+              {getContentTypeLabel(item.contentType)}
+            </Badge>
+          </div>
+        </div>
+        <CardContent className="p-5 space-y-3">
+          <div className="flex flex-wrap gap-1.5">
+            {categoryName && <Badge variant="outline" className="text-[11px]">{categoryName}</Badge>}
+            <Badge variant="outline" className="gap-1 text-[11px]">
+              <Clock className="h-3 w-3" /> 완독 {readingMinutes}분
+            </Badge>
+          </div>
+          <h3 className="font-semibold text-card-foreground line-clamp-2 group-hover:text-primary transition-colors">
+            {item.title}
+          </h3>
+          {item.excerpt && (
+            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{item.excerpt}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-1">
+            <span className="flex items-center gap-1">
+              <Eye className="h-3 w-3" /> {(item.viewCount ?? 0).toLocaleString()}
+            </span>
+            {item.publishedAt && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" /> {formatContentDate(item.publishedAt)}
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
 
 export default function Contents() {
   const searchString = useSearch();
@@ -22,8 +85,9 @@ export default function Contents() {
   const [contentType, setContentType] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(0);
 
-  const { data: categories } = trpc.category.list.useQuery();
+  const { data: categories } = trpc.category.listWithCounts.useQuery();
   const { data: playlists } = trpc.playlist.listPublic.useQuery();
+  const { data: popularContents } = trpc.content.listPopular.useQuery({ limit: 5 });
 
   const { data: contents, isLoading } = trpc.content.listPublished.useQuery({
     limit: ITEMS_PER_PAGE,
@@ -41,6 +105,18 @@ export default function Contents() {
 
   const totalPages = Math.ceil((totalCount ?? 0) / ITEMS_PER_PAGE);
   const hasActiveFilters = !!submittedSearch || selectedCategory !== undefined || contentType !== undefined;
+  const categoryNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    categories?.forEach((cat) => map.set(cat.id, cat.name));
+    return map;
+  }, [categories]);
+  const categoryTotalCount = categories?.reduce((sum, cat) => sum + (Number(cat.contentCount) || 0), 0) ?? 0;
+  const fallbackPlaylists = [
+    { id: "starter", title: "처음 읽는 투자 흐름", slug: "starter", description: "입문자에게 필요한 기본 관점과 읽는 순서", thumbnailUrl: null },
+    { id: "market", title: "주간 시장 리뷰", slug: "market", description: "주간 시장 변수와 체크포인트", thumbnailUrl: null },
+    { id: "premium", title: "프리미엄 리포트", slug: "premium", description: "구독자 전용 심화 분석", thumbnailUrl: null },
+  ];
+  const playlistCards = playlists && playlists.length > 0 ? playlists : fallbackPlaylists;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +158,24 @@ export default function Contents() {
           </div>
         </form>
 
+        {!hasActiveFilters && (
+          <div className="mb-8 grid grid-cols-1 gap-3 md:grid-cols-3">
+            {[
+              { title: "필독 먼저 보기", desc: "처음이라면 채널의 관점과 읽는 순서를 먼저 확인하세요.", href: "/contents?q=필독", icon: <BookOpen className="h-4 w-4" /> },
+              { title: "인기 글 따라잡기", desc: "조회수가 높은 글부터 빠르게 시장 흐름을 잡습니다.", href: "#popular-contents", icon: <Flame className="h-4 w-4" /> },
+              { title: "시리즈로 보기", desc: "주제별 재생목록으로 이어지는 콘텐츠를 묶어서 봅니다.", href: "#playlist-section", icon: <Layers className="h-4 w-4" /> },
+            ].map((item) => (
+              <a key={item.title} href={item.href} className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40">
+                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">{item.icon}</span>
+                  {item.title}
+                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground">{item.desc}</p>
+              </a>
+            ))}
+          </div>
+        )}
+
         {/* Filters */}
         <div className="space-y-4 mb-8">
           {/* Content Type Filter */}
@@ -105,7 +199,7 @@ export default function Contents() {
                 size="sm"
                 onClick={() => { setSelectedCategory(undefined); setPage(0); }}
               >
-                전체
+                전체 <span className="ml-1 text-xs opacity-70">{categoryTotalCount}</span>
               </Button>
               {categories.map((cat) => (
                 <Button
@@ -114,7 +208,7 @@ export default function Contents() {
                   size="sm"
                   onClick={() => { setSelectedCategory(cat.id); setPage(0); }}
                 >
-                  {cat.name}
+                  {cat.name} <span className="ml-1 text-xs opacity-70">{Number(cat.contentCount) || 0}</span>
                 </Button>
               ))}
             </div>
@@ -138,12 +232,18 @@ export default function Contents() {
         </div>
 
         {/* Playlists */}
-        {playlists && playlists.length > 0 && !submittedSearch && !selectedCategory && (
-          <div className="mb-10">
-            <h2 className="text-xl font-semibold text-foreground mb-4">재생목록</h2>
+        {!submittedSearch && !selectedCategory && (
+          <div id="playlist-section" className="mb-10 scroll-mt-24">
+            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">재생목록 / 시리즈</h2>
+                <p className="text-sm text-muted-foreground">주제별로 이어 읽기 좋은 콘텐츠 묶음입니다.</p>
+              </div>
+              <Badge variant="secondary">{playlists && playlists.length > 0 ? `${playlists.length}개 시리즈` : "시리즈 준비 중"}</Badge>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {playlists.map((pl) => (
-                <Link key={pl.id} href={`/playlists/${pl.slug}`}>
+              {playlistCards.map((pl) => (
+                <Link key={pl.id} href={typeof pl.id === "number" ? `/playlists/${pl.slug}` : "/contents"}>
                   <Card className="group cursor-pointer hover:shadow-md transition-all overflow-hidden">
                     <div className="h-32 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
                       {pl.thumbnailUrl ? (
@@ -159,6 +259,36 @@ export default function Contents() {
                       {pl.description && (
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{pl.description}</p>
                       )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {popularContents && popularContents.length > 0 && !hasActiveFilters && (
+          <div id="popular-contents" className="mb-10 scroll-mt-24">
+            <div className="mb-4 flex items-center gap-2">
+              <Flame className="h-5 w-5 text-primary" />
+              <h2 className="text-xl font-semibold text-foreground">많이 본 콘텐츠</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+              {popularContents.map((item, index) => (
+                <Link key={item.id} href={`/contents/${item.slug}`}>
+                  <Card className="group h-full transition-all hover:-translate-y-0.5 hover:shadow-md">
+                    <CardContent className="flex h-full flex-col gap-3 p-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xl font-bold text-primary">{index + 1}</span>
+                        <Badge variant={item.accessLevel === "paid" ? "default" : "secondary"} className="text-[11px]">
+                          {getAccessLabel(item.accessLevel)}
+                        </Badge>
+                      </div>
+                      <h3 className="line-clamp-3 text-sm font-semibold leading-relaxed text-card-foreground group-hover:text-primary">{item.title}</h3>
+                      <div className="mt-auto flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {(item.viewCount ?? 0).toLocaleString()}</span>
+                        <span>완독 {estimateReadingMinutes(item.body ?? item.excerpt)}분</span>
+                      </div>
                     </CardContent>
                   </Card>
                 </Link>
@@ -185,55 +315,7 @@ export default function Contents() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {contents.map((item) => (
-                <Link key={item.id} href={`/contents/${item.slug}`}>
-                  <Card className="overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-pointer h-full">
-                    <div className="relative h-48 bg-muted overflow-hidden">
-                      {item.thumbnailUrl ? (
-                        <img
-                          src={item.thumbnailUrl}
-                          alt={item.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                          {item.contentType === "video" ? (
-                            <PlayCircle className="h-12 w-12 text-primary/30" />
-                          ) : (
-                            <TrendingUp className="h-12 w-12 text-primary/30" />
-                          )}
-                        </div>
-                      )}
-                      <div className="absolute top-3 left-3 flex gap-2">
-                        {item.accessLevel === "paid" && (
-                          <Badge variant="secondary" className="bg-primary text-primary-foreground text-xs gap-1">
-                            <Lock className="h-3 w-3" /> 유료
-                          </Badge>
-                        )}
-                        {item.contentType === "video" && (
-                          <Badge variant="secondary" className="text-xs gap-1">
-                            <PlayCircle className="h-3 w-3" /> 영상
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <CardContent className="p-5 space-y-2">
-                      <h3 className="font-semibold text-card-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                        {item.title}
-                      </h3>
-                      {item.excerpt && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{item.excerpt}</p>
-                      )}
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
-                        <span className="flex items-center gap-1">
-                          <Eye className="h-3 w-3" /> {item.viewCount}
-                        </span>
-                        {item.publishedAt && (
-                          <span>{new Date(item.publishedAt).toLocaleDateString("ko-KR")}</span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                <ContentCard key={item.id} item={item} categoryName={item.categoryId ? categoryNameById.get(item.categoryId) : undefined} />
               ))}
             </div>
 

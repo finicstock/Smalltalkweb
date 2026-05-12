@@ -42,6 +42,14 @@ export const appRouter = router({
         return db.getPublishedContentCount(input ?? {});
       }),
 
+    listPopular: publicProcedure
+      .input(z.object({
+        limit: z.number().min(1).max(20).optional(),
+      }).optional())
+      .query(async ({ input }) => {
+        return db.getTopContents(input?.limit ?? 5);
+      }),
+
     getBySlug: publicProcedure
       .input(z.object({ slug: z.string() }))
       .query(async ({ input }) => {
@@ -62,6 +70,10 @@ export const appRouter = router({
   category: router({
     list: publicProcedure.query(async () => {
       return db.listCategories();
+    }),
+
+    listWithCounts: publicProcedure.query(async () => {
+      return db.listCategoriesWithCounts();
     }),
   }),
 

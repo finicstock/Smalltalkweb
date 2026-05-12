@@ -180,6 +180,25 @@ export async function listCategories() {
   return db.select().from(categories).orderBy(asc(categories.sortOrder));
 }
 
+export async function listCategoriesWithCounts() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: categories.id,
+      name: categories.name,
+      slug: categories.slug,
+      description: categories.description,
+      sortOrder: categories.sortOrder,
+      createdAt: categories.createdAt,
+      contentCount: count(contents.id),
+    })
+    .from(categories)
+    .leftJoin(contents, and(eq(categories.id, contents.categoryId), eq(contents.status, "published")))
+    .groupBy(categories.id, categories.name, categories.slug, categories.description, categories.sortOrder, categories.createdAt)
+    .orderBy(asc(categories.sortOrder));
+}
+
 export async function createCategory(data: InsertCategory) {
   const db = await getDb();
   if (!db) return;
@@ -589,7 +608,12 @@ export async function getContentStats(contentId: number, days: number = 30) {
 
 export async function getTopContents(limit: number = 10) {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) {
+    return [...memoryContents]
+      .filter((item) => item.status === "published")
+      .sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0))
+      .slice(0, limit);
+  }
   return db.query.contents.findMany({
     where: eq(contents.status, "published"),
     orderBy: desc(contents.viewCount),

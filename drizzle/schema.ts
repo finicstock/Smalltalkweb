@@ -1,5 +1,4 @@
 import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, bigint, json } from "drizzle-orm/mysql-core";
-
 /**
  * Core user table backing auth flow.
  */
@@ -15,10 +14,8 @@ export const users = mysqlTable("users", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
-
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
-
 /**
  * Categories for organizing content
  */
@@ -30,10 +27,8 @@ export const categories = mysqlTable("categories", {
   sortOrder: int("sortOrder").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
-
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = typeof categories.$inferInsert;
-
 /**
  * Content items (articles, videos)
  */
@@ -55,10 +50,8 @@ export const contents = mysqlTable("contents", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type Content = typeof contents.$inferSelect;
 export type InsertContent = typeof contents.$inferInsert;
-
 /**
  * Subscription plans (monthly, yearly)
  */
@@ -74,10 +67,8 @@ export const plans = mysqlTable("plans", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type Plan = typeof plans.$inferSelect;
 export type InsertPlan = typeof plans.$inferInsert;
-
 /**
  * User subscriptions
  */
@@ -95,10 +86,8 @@ export const subscriptions = mysqlTable("subscriptions", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = typeof subscriptions.$inferInsert;
-
 /**
  * Payment history
  */
@@ -115,76 +104,22 @@ export const payments = mysqlTable("payments", {
   paidAt: timestamp("paidAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
-
 export type Payment = typeof payments.$inferSelect;
 export type InsertPayment = typeof payments.$inferInsert;
-
 /**
- * Newsletter campaigns
+ * Telegram settings for premium subscriber access
  */
-export const newsletters = mysqlTable("newsletters", {
+export const telegramSettings = mysqlTable("telegram_settings", {
   id: int("id").autoincrement().primaryKey(),
-  subject: varchar("subject", { length: 500 }).notNull(),
-  body: text("body").notNull(),
-  status: mysqlEnum("status", ["draft", "scheduled", "sent"]).default("draft").notNull(),
-  recipientType: mysqlEnum("recipientType", ["all", "subscribers", "free"]).default("subscribers").notNull(),
-  sentCount: int("sentCount").default(0).notNull(),
-  scheduledAt: timestamp("scheduledAt"),
-  sentAt: timestamp("sentAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-
-export type Newsletter = typeof newsletters.$inferSelect;
-export type InsertNewsletter = typeof newsletters.$inferInsert;
-
-/**
- * Newsletter subscribers
- */
-export const newsletterSubscribers = mysqlTable("newsletter_subscribers", {
-  id: int("id").autoincrement().primaryKey(),
-  email: varchar("email", { length: 320 }).notNull().unique(),
-  userId: int("userId"),
+  inviteLink: varchar("inviteLink", { length: 500 }).notNull(),
+  channelName: varchar("channelName", { length: 200 }),
+  description: text("description"),
   isActive: boolean("isActive").default(true).notNull(),
-  subscribedAt: timestamp("subscribedAt").defaultNow().notNull(),
-  unsubscribedAt: timestamp("unsubscribedAt"),
-});
-
-export type NewsletterSubscriber = typeof newsletterSubscribers.$inferSelect;
-export type InsertNewsletterSubscriber = typeof newsletterSubscribers.$inferInsert;
-
-/**
- * Chat messages for customer support
- */
-export const chatMessages = mysqlTable("chat_messages", {
-  id: int("id").autoincrement().primaryKey(),
-  sessionId: varchar("sessionId", { length: 100 }).notNull(),
-  userId: int("userId"),
-  senderType: mysqlEnum("senderType", ["user", "admin", "system"]).notNull(),
-  message: text("message").notNull(),
-  isRead: boolean("isRead").default(false).notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type ChatMessage = typeof chatMessages.$inferSelect;
-export type InsertChatMessage = typeof chatMessages.$inferInsert;
-
-/**
- * Chat sessions
- */
-export const chatSessions = mysqlTable("chat_sessions", {
-  id: int("id").autoincrement().primaryKey(),
-  sessionId: varchar("sessionId", { length: 100 }).notNull().unique(),
-  userId: int("userId"),
-  userName: varchar("userName", { length: 200 }),
-  status: mysqlEnum("status", ["open", "closed"]).default("open").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
-export type ChatSession = typeof chatSessions.$inferSelect;
-export type InsertChatSession = typeof chatSessions.$inferInsert;
-
+export type TelegramSetting = typeof telegramSettings.$inferSelect;
+export type InsertTelegramSetting = typeof telegramSettings.$inferInsert;
 /**
  * Playlists for organizing content series
  */
@@ -199,10 +134,8 @@ export const playlists = mysqlTable("playlists", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type Playlist = typeof playlists.$inferSelect;
 export type InsertPlaylist = typeof playlists.$inferInsert;
-
 /**
  * Many-to-many: playlist <-> content
  */
@@ -213,6 +146,5 @@ export const playlistContents = mysqlTable("playlist_contents", {
   sortOrder: int("sortOrder").default(0).notNull(),
   addedAt: timestamp("addedAt").defaultNow().notNull(),
 });
-
 export type PlaylistContent = typeof playlistContents.$inferSelect;
 export type InsertPlaylistContent = typeof playlistContents.$inferInsert;

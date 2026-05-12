@@ -42,13 +42,15 @@ export default function Footer() {
 
           {/* Contact */}
           <div className="space-y-4">
-            <h3 className="font-semibold text-sm tracking-wide uppercase">고객지원</h3>
+            <h3 className="font-semibold text-sm tracking-wide uppercase">커뮤니티</h3>
             <ul className="space-y-2.5">
               <li className="text-sm text-primary-foreground/70">
-                문의: 채팅 상담 (우측 하단)
+                프리미엄 구독자 전용 텔레그램 채널
               </li>
-              <li className="text-sm text-primary-foreground/70">
-                운영시간: 평일 10:00 - 18:00
+              <li>
+                <Link href="/pricing" className="text-sm text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+                  구독하고 입장하기 →
+                </Link>
               </li>
             </ul>
           </div>

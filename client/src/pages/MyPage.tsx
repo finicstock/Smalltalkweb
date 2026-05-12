@@ -7,7 +7,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
 import { Link, useLocation } from "wouter";
-import { User, Crown, CreditCard, LogOut, ArrowRight } from "lucide-react";
+import { User, Crown, CreditCard, LogOut, ArrowRight, Send, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 export default function MyPage() {
@@ -15,6 +15,11 @@ export default function MyPage() {
   const [, navigate] = useLocation();
 
   const { data: subscription } = trpc.subscription.mySubscription.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  const { data: telegramData, isLoading: telegramLoading } = trpc.telegram.getInvite.useQuery(undefined, {
     enabled: isAuthenticated,
     retry: false,
   });
@@ -128,6 +133,54 @@ export default function MyPage() {
                 <Link href="/pricing">
                   <Button className="gap-2">
                     구독하기 <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Telegram Access */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Send className="h-5 w-5 text-[#0088cc]" /> 텔레그램 입장권
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {telegramLoading ? (
+              <div className="animate-pulse space-y-3">
+                <div className="h-12 bg-muted rounded" />
+                <div className="h-10 bg-muted rounded" />
+              </div>
+            ) : telegramData?.hasAccess && telegramData.settings ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-[#0088cc]/10 flex items-center justify-center shrink-0">
+                    <Send className="h-6 w-6 text-[#0088cc]" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">{telegramData.settings.channelName || "텔레그램 채널"}</h3>
+                    <p className="text-sm text-muted-foreground">프리미엄 구독자 전용</p>
+                  </div>
+                </div>
+                {telegramData.settings.description && (
+                  <p className="text-sm text-muted-foreground">{telegramData.settings.description}</p>
+                )}
+                <a href={telegramData.settings.inviteLink} target="_blank" rel="noopener noreferrer">
+                  <Button className="gap-2 bg-[#0088cc] hover:bg-[#006699] text-white w-full">
+                    <ExternalLink className="h-4 w-4" /> 텔레그램 채널 입장하기
+                  </Button>
+                </a>
+              </div>
+            ) : telegramData?.hasAccess && !telegramData.settings ? (
+              <p className="text-sm text-muted-foreground">텔레그램 채널이 아직 준비 중입니다. 곧 오픈될 예정이니 조금만 기다려 주세요.</p>
+            ) : (
+              <div className="text-center py-4 space-y-3">
+                <p className="text-sm text-muted-foreground">프리미엄 구독자만 텔레그램 채널에 입장할 수 있습니다.</p>
+                <Link href="/pricing">
+                  <Button variant="outline" className="gap-2">
+                    구독하고 입장하기 <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
               </div>

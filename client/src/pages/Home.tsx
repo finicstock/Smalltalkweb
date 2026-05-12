@@ -2,7 +2,7 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, TrendingUp, Lock, Eye, Zap, BarChart3, Shield, Check } from "lucide-react";
+import { ArrowRight, TrendingUp, Lock, Eye, Zap, BarChart3, Shield, Check, Send } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -78,8 +78,8 @@ function ValuePropositionSection() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {values.map((item, i) => (
             <Card key={i} className="border-0 shadow-sm bg-card hover:shadow-md transition-shadow">
-              <CardContent className="p-6 space-y-4">
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+              <CardContent className="p-8 text-center space-y-4">
+                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mx-auto">
                   {item.icon}
                 </div>
                 <h3 className="text-lg font-semibold text-card-foreground">{item.title}</h3>
@@ -94,89 +94,47 @@ function ValuePropositionSection() {
 }
 
 function RecentContentPreview() {
-  const { data: contents, isLoading } = trpc.content.listPublished.useQuery(
-    { limit: 3 },
-    { retry: false }
-  );
-
-  if (isLoading) {
-    return (
-      <section className="py-20 bg-secondary/30">
-        <div className="container">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground">최근 콘텐츠</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="overflow-hidden animate-pulse">
-                <div className="h-48 bg-muted" />
-                <CardContent className="p-5 space-y-3">
-                  <div className="h-4 bg-muted rounded w-3/4" />
-                  <div className="h-3 bg-muted rounded w-full" />
-                  <div className="h-3 bg-muted rounded w-2/3" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  const items = contents ?? [];
+  const { data: contents, isLoading } = trpc.content.listPublished.useQuery({ limit: 3 });
 
   return (
-    <section className="py-20 bg-secondary/30">
+    <section className="py-20 bg-muted/30">
       <div className="container">
-        <div className="flex items-center justify-between mb-12">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground">최근 콘텐츠</h2>
-            <p className="text-muted-foreground mt-2">최신 투자 인사이트를 확인하세요</p>
-          </div>
+        <div className="flex items-center justify-between mb-10">
+          <h2 className="text-2xl md:text-3xl font-bold text-foreground">최근 콘텐츠</h2>
           <Link href="/contents">
-            <Button variant="ghost" className="gap-1 text-primary">
+            <Button variant="ghost" className="gap-1 text-muted-foreground hover:text-foreground">
               전체보기 <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {items.length > 0 ? items.map((item) => (
+          {!isLoading && contents && contents.length > 0 ? contents.map((item) => (
             <Link key={item.id} href={`/contents/${item.slug}`}>
-              <Card className="overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-pointer h-full">
-                <div className="relative h-48 bg-muted overflow-hidden">
+              <Card className="overflow-hidden hover:shadow-md transition-shadow h-full">
+                <div className="h-48 bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center relative">
                   {item.thumbnailUrl ? (
-                    <img
-                      src={item.thumbnailUrl}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                    <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                      <TrendingUp className="h-12 w-12 text-primary/30" />
-                    </div>
+                    <TrendingUp className="h-12 w-12 text-primary/30" />
                   )}
-                  <div className="absolute top-3 left-3 flex gap-2">
-                    {item.accessLevel === "paid" && (
-                      <Badge variant="secondary" className="bg-primary text-primary-foreground text-xs gap-1">
-                        <Lock className="h-3 w-3" /> 유료
-                      </Badge>
-                    )}
-                    {item.contentType === "video" && (
-                      <Badge variant="secondary" className="text-xs">영상</Badge>
-                    )}
-                  </div>
+                  {item.accessLevel === "paid" && (
+                    <Badge className="absolute top-3 right-3 bg-primary/90 text-primary-foreground gap-1 text-xs">
+                      <Lock className="h-3 w-3" /> 유료
+                    </Badge>
+                  )}
+                  {item.accessLevel === "free" && (
+                    <Badge variant="secondary" className="absolute top-3 right-3 gap-1 text-xs">
+                      무료
+                    </Badge>
+                  )}
                 </div>
                 <CardContent className="p-5 space-y-2">
-                  <h3 className="font-semibold text-card-foreground line-clamp-2 group-hover:text-primary transition-colors">
-                    {item.title}
-                  </h3>
+                  <h3 className="font-semibold text-card-foreground line-clamp-2">{item.title}</h3>
                   {item.excerpt && (
                     <p className="text-sm text-muted-foreground line-clamp-2">{item.excerpt}</p>
                   )}
                   <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
-                    <span className="flex items-center gap-1">
-                      <Eye className="h-3 w-3" /> {item.viewCount}
-                    </span>
+                    <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {item.viewCount}</span>
                     {item.publishedAt && (
                       <span>{new Date(item.publishedAt).toLocaleDateString("ko-KR")}</span>
                     )}
@@ -226,7 +184,7 @@ function PricingPreviewSection() {
                 <span className="text-muted-foreground ml-1">원/월</span>
               </div>
               <ul className="space-y-2.5 text-sm text-left">
-                {["모든 프리미엄 콘텐츠 열람", "주간 투자 리포트", "이메일 뉴스레터", "채팅 고객센터"].map((f) => (
+                {["모든 프리미엄 콘텐츠 열람", "주간 투자 리포트", "텔레그램 프리미엄 채널 입장"].map((f) => (
                   <li key={f} className="flex items-center gap-2 text-muted-foreground">
                     <Check className="h-4 w-4 text-primary shrink-0" /> {f}
                   </li>
@@ -237,7 +195,6 @@ function PricingPreviewSection() {
               </Link>
             </CardContent>
           </Card>
-
           {/* Yearly */}
           <Card className="border-2 border-primary relative">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -256,7 +213,7 @@ function PricingPreviewSection() {
               </div>
               <p className="text-xs text-primary font-medium">월 24,917원 (17% 할인)</p>
               <ul className="space-y-2.5 text-sm text-left">
-                {["모든 프리미엄 콘텐츠 열람", "주간 투자 리포트", "이메일 뉴스레터", "채팅 고객센터", "연간 구독자 전용 콘텐츠"].map((f) => (
+                {["모든 프리미엄 콘텐츠 열람", "주간 투자 리포트", "텔레그램 프리미엄 채널 입장", "연간 구독자 전용 콘텐츠"].map((f) => (
                   <li key={f} className="flex items-center gap-2 text-muted-foreground">
                     <Check className="h-4 w-4 text-primary shrink-0" /> {f}
                   </li>
@@ -273,24 +230,25 @@ function PricingPreviewSection() {
   );
 }
 
-function NewsletterCTA() {
+function TelegramCTA() {
   return (
-    <section className="py-16 bg-primary/5">
+    <section className="py-16 bg-[#0088cc]/5">
       <div className="container">
         <div className="max-w-2xl mx-auto text-center space-y-4">
-          <h2 className="text-2xl md:text-3xl font-bold text-foreground">뉴스레터 구독</h2>
-          <p className="text-muted-foreground">
-            매주 엄선된 투자 인사이트를 이메일로 받아보세요. 무료입니다.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto pt-2">
-            <input
-              type="email"
-              placeholder="이메일 주소를 입력하세요"
-              className="flex-1 px-4 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            <Button className="shrink-0">구독하기</Button>
+          <div className="flex justify-center">
+            <div className="h-16 w-16 rounded-full bg-[#0088cc]/10 flex items-center justify-center">
+              <Send className="h-8 w-8 text-[#0088cc]" />
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">언제든지 구독을 취소할 수 있습니다.</p>
+          <h2 className="text-2xl md:text-3xl font-bold text-foreground">텔레그램 프리미엄 채널</h2>
+          <p className="text-muted-foreground">
+            구독자 전용 텔레그램 채널에서 실시간 투자 인사이트와 토론에 참여하세요.
+          </p>
+          <Link href="/pricing">
+            <Button className="gap-2 bg-[#0088cc] hover:bg-[#006699] text-white">
+              <Send className="h-4 w-4" /> 구독하고 입장하기
+            </Button>
+          </Link>
         </div>
       </div>
     </section>
@@ -304,7 +262,7 @@ export default function Home() {
       <ValuePropositionSection />
       <RecentContentPreview />
       <PricingPreviewSection />
-      <NewsletterCTA />
+      <TelegramCTA />
     </Layout>
   );
 }

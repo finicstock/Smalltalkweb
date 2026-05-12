@@ -92,24 +92,15 @@ describe("plan.listActive", () => {
   });
 });
 
-describe("newsletter.subscribe", () => {
-  it("subscribes with a valid email", async () => {
+describe("telegram.getInvite", () => {
+  it("requires authentication", async () => {
     const caller = appRouter.createCaller(createPublicContext());
-    const result = await caller.newsletter.subscribe({ email: `test-${Date.now()}@example.com` });
-    expect(result).toEqual({ success: true });
+    await expect(caller.telegram.getInvite()).rejects.toThrow();
   });
-});
-
-describe("chat", () => {
-  it("creates a session and sends a message", async () => {
-    const caller = appRouter.createCaller(createPublicContext());
-    const sessionId = `test-${Date.now()}`;
-    const session = await caller.chat.getOrCreateSession({ sessionId, userName: "Tester" });
-    expect(session).toBeDefined();
-    const result = await caller.chat.sendMessage({ sessionId, message: "Hello", senderType: "user" });
-    expect(result).toEqual({ success: true });
-    const messages = await caller.chat.getMessages({ sessionId });
-    expect(Array.isArray(messages)).toBe(true);
+  it("returns hasAccess false for non-subscriber", async () => {
+    const caller = appRouter.createCaller(createUserContext());
+    const result = await caller.telegram.getInvite();
+    expect(result.hasAccess).toBe(false);
   });
 });
 
@@ -132,7 +123,6 @@ describe("admin procedures", () => {
     expect(result).toBeDefined();
     expect(typeof result.users).toBe("number");
     expect(typeof result.contents).toBe("number");
-    expect(typeof result.subscribers).toBe("number");
     expect(typeof result.activeSubscriptions).toBe("number");
   });
   it("allows admin to list contents", async () => {

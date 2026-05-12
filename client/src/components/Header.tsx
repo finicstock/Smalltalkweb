@@ -16,7 +16,6 @@ import { Link, useLocation } from "wouter";
 const NAV_ITEMS = [
   { label: "홈", href: "/" },
   { label: "콘텐츠", href: "/contents" },
-  { label: "작성자", href: "/author" },
   { label: "구독", href: "/pricing" },
 ];
 

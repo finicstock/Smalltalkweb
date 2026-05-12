@@ -8,22 +8,29 @@ import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import BrandLogo from "@/components/BrandLogo";
+import { getLoginUrl } from "@/const";
+import { toast } from "sonner";
 
 function HeroSection() {
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-primary/5 via-background to-background">
-      <div className="container py-20 md:py-28">
-        <div className="max-w-3xl mx-auto text-center space-y-6">
-          <div className="flex justify-center mb-6">
+      <div className="container py-12 md:py-28">
+        <div className="mx-auto max-w-3xl text-center space-y-4 md:space-y-6">
+          <div className="flex justify-center mb-4 md:mb-6">
             <BrandLogo
               className="flex-col gap-3"
-              imageClassName="h-28 md:h-36 w-auto"
-              markClassName="h-20 w-20 text-3xl md:h-24 md:w-24 md:text-4xl"
-              textClassName="text-2xl md:text-3xl"
+              imageClassName="h-20 md:h-36 w-auto"
+              markClassName="h-16 w-16 text-2xl md:h-24 md:w-24 md:text-4xl"
+              textClassName="text-xl md:text-3xl"
             />
           </div>
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground leading-tight">
-            투자 대회 1위 출신 닉스가 말하는<br className="hidden sm:block" /> 투자에 대한 작은 이야기, 지금 함께하세요.
+          <h1 className="relative left-1/2 w-screen -translate-x-1/2 px-2 font-bold tracking-tight text-foreground leading-tight sm:static sm:w-auto sm:translate-x-0 sm:px-0">
+            <span className="block whitespace-nowrap text-[18px] max-[359px]:text-[15px] sm:text-3xl md:text-5xl">
+              투자대회 1위 출신 닉스가 말하는
+            </span>
+            <span className="mt-1 block whitespace-nowrap text-[14px] max-[359px]:text-[12px] sm:text-3xl md:text-5xl">
+              투자에 대한 작은 이야기, 지금 함께하세요.
+            </span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             시장의 소음을 걷어내고, 진짜 중요한 것에 집중합니다.
@@ -43,10 +50,6 @@ function HeroSection() {
             </Link>
           </div>
         </div>
-      </div>
-      {/* Decorative gradient */}
-      <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-3xl" />
       </div>
     </section>
   );
@@ -72,23 +75,23 @@ function ValuePropositionSection() {
   ];
 
   return (
-    <section className="py-20 bg-background">
+    <section className="py-10 md:py-20 bg-background">
       <div className="container">
-        <div className="text-center mb-12">
+        <div className="text-center mb-6 md:mb-12">
           <h2 className="text-2xl md:text-3xl font-bold text-foreground">왜 닉스의 스몰톡인가요?</h2>
-          <p className="text-muted-foreground mt-3 max-w-xl mx-auto">
+          <p className="hidden sm:block text-muted-foreground mt-3 max-w-xl mx-auto">
             투자에 대한 새로운 관점을 제시합니다
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-3 gap-2 md:gap-6">
           {values.map((item, i) => (
             <Card key={i} className="border-0 shadow-sm bg-card hover:shadow-md transition-shadow">
-              <CardContent className="p-8 text-center space-y-4">
-                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mx-auto">
+              <CardContent className="p-3 text-center space-y-2 md:p-8 md:space-y-4">
+                <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary mx-auto md:h-14 md:w-14 md:rounded-2xl [&>svg]:h-4 [&>svg]:w-4 md:[&>svg]:h-6 md:[&>svg]:w-6">
                   {item.icon}
                 </div>
-                <h3 className="text-lg font-semibold text-card-foreground">{item.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                <h3 className="text-[13px] font-semibold leading-snug text-card-foreground md:text-lg">{item.title}</h3>
+                <p className="hidden sm:block text-sm text-muted-foreground leading-relaxed">{item.description}</p>
               </CardContent>
             </Card>
           ))}
@@ -102,9 +105,9 @@ function RecentContentPreview() {
   const { data: contents, isLoading } = trpc.content.listPublished.useQuery({ limit: 3 });
 
   return (
-    <section className="py-20 bg-muted/30">
+    <section className="py-12 md:py-20 bg-muted/30">
       <div className="container">
-        <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center justify-between mb-8 md:mb-10">
           <h2 className="text-2xl md:text-3xl font-bold text-foreground">최근 콘텐츠</h2>
           <Link href="/contents">
             <Button variant="ghost" className="gap-1 text-muted-foreground hover:text-foreground">
@@ -167,10 +170,29 @@ function RecentContentPreview() {
 }
 
 function PricingPreviewSection() {
+  const { isAuthenticated } = useAuth();
+  const { data: subscription } = trpc.subscription.mySubscription.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+  const isSubscribed = !!subscription;
+
+  const handleSubscribe = (cycle: "monthly" | "yearly") => {
+    if (!isAuthenticated) {
+      window.location.href = getLoginUrl();
+      return;
+    }
+    if (isSubscribed) {
+      toast.info("이미 구독 중입니다.");
+      return;
+    }
+    toast.info(`${cycle === "monthly" ? "월간" : "연간"} 구독 결제 시스템 준비 중입니다. 곧 서비스가 시작됩니다.`);
+  };
+
   return (
-    <section className="py-20 bg-background">
+    <section className="py-12 md:py-20 bg-background">
       <div className="container">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8 md:mb-12">
           <h2 className="text-2xl md:text-3xl font-bold text-foreground">구독 플랜</h2>
           <p className="text-muted-foreground mt-3 max-w-xl mx-auto">
             합리적인 가격으로 프리미엄 투자 인사이트를 만나보세요
@@ -195,9 +217,9 @@ function PricingPreviewSection() {
                   </li>
                 ))}
               </ul>
-              <Link href="/pricing">
-                <Button variant="outline" className="w-full">구독하기</Button>
-              </Link>
+              <Button variant="outline" className="w-full" onClick={() => handleSubscribe("monthly")} disabled={isSubscribed}>
+                {isSubscribed ? "구독 중" : "구독하기"}
+              </Button>
             </CardContent>
           </Card>
           {/* Yearly */}
@@ -224,9 +246,9 @@ function PricingPreviewSection() {
                   </li>
                 ))}
               </ul>
-              <Link href="/pricing">
-                <Button className="w-full">구독하기</Button>
-              </Link>
+              <Button className="w-full" onClick={() => handleSubscribe("yearly")} disabled={isSubscribed}>
+                {isSubscribed ? "구독 중" : "구독하기"}
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -237,7 +259,7 @@ function PricingPreviewSection() {
 
 function TelegramCTA() {
   return (
-    <section className="py-16 bg-[#0088cc]/5">
+    <section className="py-12 md:py-16 bg-[#0088cc]/5">
       <div className="container">
         <div className="max-w-2xl mx-auto text-center space-y-4">
           <div className="flex justify-center">

@@ -2,105 +2,27 @@ import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import MarkdownEditor from "@/components/MarkdownEditor";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pencil, Trash2, Eye, Lock, Globe, Search, PenSquare } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
-
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9가-힣\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim() || `content-${Date.now()}`;
-}
 
 type StatusFilter = "all" | "published" | "draft" | "archived";
 
 export default function AdminContents() {
   const utils = trpc.useUtils();
   const { data: contents, isLoading, error: contentsError } = trpc.admin.listContents.useQuery({ limit: 100 });
-  const { data: categories } = trpc.admin.listCategories.useQuery();
-  const createContent = trpc.admin.createContent.useMutation({
-    onSuccess: () => { utils.admin.listContents.invalidate(); toast.success("콘텐츠가 생성되었습니다."); setIsOpen(false); resetForm(); },
-    onError: (err) => toast.error(err.message || "콘텐츠 생성에 실패했습니다."),
-  });
-  const updateContent = trpc.admin.updateContent.useMutation({
-    onSuccess: () => { utils.admin.listContents.invalidate(); toast.success("콘텐츠가 수정되었습니다."); setIsOpen(false); resetForm(); },
-    onError: (err) => toast.error(err.message || "콘텐츠 수정에 실패했습니다."),
-  });
   const deleteContent = trpc.admin.deleteContent.useMutation({
     onSuccess: () => { utils.admin.listContents.invalidate(); toast.success("콘텐츠가 삭제되었습니다."); },
     onError: (err) => toast.error(err.message || "콘텐츠 삭제에 실패했습니다."),
   });
 
-  const [isOpen, setIsOpen] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [location] = useLocation();
-
-  // /admin/contents/new 라우트로 접근 시 자동으로 새글 작성 다이얼로그 열기
-  useEffect(() => {
-    if (location === "/admin/contents/new") {
-      resetForm();
-      setIsOpen(true);
-    }
-  }, [location]);
-
-  const [form, setForm] = useState({
-    title: "", slug: "", excerpt: "", body: "", contentType: "article" as "article" | "video",
-    videoUrl: "", accessLevel: "free" as "free" | "paid", status: "draft" as "draft" | "published" | "archived", categoryId: "",
-  });
-
-  const resetForm = () => {
-    setForm({ title: "", slug: "", excerpt: "", body: "", contentType: "article", videoUrl: "", accessLevel: "free", status: "draft", categoryId: "" });
-    setEditId(null);
-  };
-
-  const openEdit = (item: any) => {
-    setEditId(item.id);
-    setForm({
-      title: item.title, slug: item.slug, excerpt: item.excerpt ?? "", body: item.body ?? "",
-      contentType: item.contentType, videoUrl: item.videoUrl ?? "", accessLevel: item.accessLevel,
-      status: item.status, categoryId: item.categoryId?.toString() ?? "",
-    });
-    setIsOpen(true);
-  };
-
-  const openNew = () => {
-    resetForm();
-    setIsOpen(true);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const data = {
-      title: form.title,
-      slug: form.slug || slugify(form.title),
-      excerpt: form.excerpt || undefined,
-      body: form.body || undefined,
-      contentType: form.contentType,
-      videoUrl: form.videoUrl || undefined,
-      accessLevel: form.accessLevel,
-      status: form.status,
-      categoryId: form.categoryId && form.categoryId !== "none" ? parseInt(form.categoryId) : undefined,
-    };
-    if (editId) {
-      updateContent.mutate({ id: editId, ...data });
-    } else {
-      createContent.mutate(data);
-    }
-  };
+  const [, navigate] = useLocation();
 
   const filteredContents = useMemo(() => {
     if (!contents) return [];
@@ -130,7 +52,11 @@ export default function AdminContents() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">콘텐츠 관리</h1>
-        <Button size="sm" className="gap-1.5 text-[13px] bg-[#2B3A4E] hover:bg-[#1e2b3a]" onClick={openNew}>
+        <Button
+          size="sm"
+          className="gap-1.5 text-[13px] bg-[#2B3A4E] hover:bg-[#1e2b3a]"
+          onClick={() => navigate("/admin/editor/new")}
+        >
           <PenSquare className="h-3.5 w-3.5" /> 새글쓰기
         </Button>
       </div>
@@ -193,7 +119,10 @@ export default function AdminContents() {
                 <TableRow key={item.id} className="hover:bg-gray-50/50 group">
                   <TableCell className="pl-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-[13px] text-gray-900 font-medium truncate max-w-xs cursor-pointer hover:text-[#2B3A4E]" onClick={() => openEdit(item)}>
+                      <span
+                        className="text-[13px] text-gray-900 font-medium truncate max-w-xs cursor-pointer hover:text-[#2B3A4E]"
+                        onClick={() => navigate(`/admin/editor/${item.id}`)}
+                      >
                         {item.title}
                       </span>
                       {item.contentType === "video" && (
@@ -239,7 +168,7 @@ export default function AdminContents() {
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-0.5">
                       <button
-                        onClick={() => openEdit(item)}
+                        onClick={() => navigate(`/admin/editor/${item.id}`)}
                         className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -273,7 +202,12 @@ export default function AdminContents() {
               {searchQuery ? "검색 결과가 없습니다." : "아직 콘텐츠가 없습니다."}
             </p>
             {!searchQuery && (
-              <Button variant="outline" size="sm" className="mt-3 text-[13px]" onClick={openNew}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 text-[13px]"
+                onClick={() => navigate("/admin/editor/new")}
+              >
                 첫 콘텐츠 작성하기
               </Button>
             )}
@@ -285,98 +219,6 @@ export default function AdminContents() {
       {filteredContents.length > 0 && (
         <p className="text-[12px] text-gray-400">총 {filteredContents.length}건</p>
       )}
-
-      {/* Content Editor Dialog */}
-      <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) resetForm(); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base">{editId ? "콘텐츠 수정" : "새 콘텐츠 작성"}</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-[13px]">제목 *</Label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm(f => ({ ...f, title: e.target.value, slug: f.slug || slugify(e.target.value) }))}
-                required
-                className="text-[13px]"
-                placeholder="콘텐츠 제목을 입력하세요"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[13px]">슬러그 (URL)</Label>
-              <Input value={form.slug} onChange={(e) => setForm(f => ({ ...f, slug: e.target.value }))} placeholder="자동 생성" className="text-[13px]" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[13px]">요약</Label>
-              <Textarea value={form.excerpt} onChange={(e) => setForm(f => ({ ...f, excerpt: e.target.value }))} rows={2} className="text-[13px]" placeholder="콘텐츠 목록에 표시될 요약문" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[13px]">본문 (Markdown)</Label>
-              <MarkdownEditor value={form.body} onChange={(v) => setForm(f => ({ ...f, body: v }))} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-[13px]">콘텐츠 유형</Label>
-                <Select value={form.contentType} onValueChange={(v) => setForm(f => ({ ...f, contentType: v as any }))}>
-                  <SelectTrigger className="text-[13px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="article">아티클</SelectItem>
-                    <SelectItem value="video">영상</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[13px]">접근 권한</Label>
-                <Select value={form.accessLevel} onValueChange={(v) => setForm(f => ({ ...f, accessLevel: v as any }))}>
-                  <SelectTrigger className="text-[13px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="free">무료</SelectItem>
-                    <SelectItem value="paid">유료 (구독자 전용)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            {form.contentType === "video" && (
-              <div className="space-y-1.5">
-                <Label className="text-[13px]">영상 URL</Label>
-                <Input value={form.videoUrl} onChange={(e) => setForm(f => ({ ...f, videoUrl: e.target.value }))} placeholder="YouTube embed URL" className="text-[13px]" />
-              </div>
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-[13px]">카테고리</Label>
-                <Select value={form.categoryId} onValueChange={(v) => setForm(f => ({ ...f, categoryId: v }))}>
-                  <SelectTrigger className="text-[13px]"><SelectValue placeholder="선택" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">없음</SelectItem>
-                    {categories?.map((c) => (
-                      <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[13px]">상태</Label>
-                <Select value={form.status} onValueChange={(v) => setForm(f => ({ ...f, status: v as any }))}>
-                  <SelectTrigger className="text-[13px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">초안</SelectItem>
-                    <SelectItem value="published">발행</SelectItem>
-                    <SelectItem value="archived">보관</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 pt-3 border-t">
-              <Button type="button" variant="outline" size="sm" onClick={() => { setIsOpen(false); resetForm(); }} className="text-[13px]">취소</Button>
-              <Button type="submit" size="sm" disabled={createContent.isPending || updateContent.isPending} className="text-[13px] bg-[#2B3A4E] hover:bg-[#1e2b3a]">
-                {editId ? "수정 완료" : "작성 완료"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

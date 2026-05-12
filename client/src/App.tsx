@@ -22,6 +22,7 @@ import AdminPlaylists from "./pages/admin/AdminPlaylists";
 import AdminSubscribers from "./pages/admin/AdminSubscribers";
 import AdminPlans from "./pages/admin/AdminPlans";
 import AdminTelegram from "./pages/admin/AdminTelegram";
+import AdminContentEditor from "./pages/admin/AdminContentEditor";
 
 function AdminRoute({ component: Component }: { component: React.ComponentType }) {
   return (
@@ -42,9 +43,12 @@ function Router() {
       <Route path="/search" component={SearchPage} />
       <Route path="/mypage" component={MyPage} />
 
-      {/* Admin */}
+      {/* Admin - Full screen editor (no AdminLayout) */}
+      <Route path="/admin/editor/new" component={AdminContentEditor} />
+      <Route path="/admin/editor/:id" component={AdminContentEditor} />
+
+      {/* Admin - Standard layout */}
       <Route path="/admin">{() => <AdminRoute component={AdminDashboard} />}</Route>
-      <Route path="/admin/contents/new">{() => <AdminRoute component={AdminContents} />}</Route>
       <Route path="/admin/contents">{() => <AdminRoute component={AdminContents} />}</Route>
       <Route path="/admin/categories">{() => <AdminRoute component={AdminCategories} />}</Route>
       <Route path="/admin/playlists">{() => <AdminRoute component={AdminPlaylists} />}</Route>

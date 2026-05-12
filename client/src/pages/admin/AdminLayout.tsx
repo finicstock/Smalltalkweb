@@ -8,7 +8,7 @@ import { useState } from "react";
 const navSections = [
   {
     items: [
-      { href: "/admin/contents/new", label: "새글쓰기", icon: PenSquare, highlight: true },
+      { href: "/admin/editor/new", label: "새글쓰기", icon: PenSquare, highlight: true },
     ],
   },
   {

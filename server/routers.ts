@@ -433,6 +433,24 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // Image Upload
+    uploadImage: adminProcedure
+      .input(z.object({
+        filename: z.string(),
+        data: z.string(), // base64 data URL
+        contentType: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const { storagePut } = await import("./storage");
+        // Extract base64 data from data URL
+        const base64Data = input.data.replace(/^data:[^;]+;base64,/, "");
+        const buffer = Buffer.from(base64Data, "base64");
+        const ext = input.filename.split(".").pop() || "png";
+        const key = `content-images/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { url } = await storagePut(key, buffer, input.contentType);
+        return { url };
+      }),
+
     // Payments
     listPayments: adminProcedure
       .input(z.object({ userId: z.number().optional(), limit: z.number().optional(), offset: z.number().optional() }).optional())

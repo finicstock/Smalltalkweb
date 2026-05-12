@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -256,6 +257,10 @@ function TelegramCTA() {
 }
 
 export default function Home() {
+  useEffect(() => {
+    document.title = "닉스의 스몰톡 | 투자 대회 1위 출신 닉스의 투자 인사이트";
+  }, []);
+
   return (
     <Layout>
       <HeroSection />

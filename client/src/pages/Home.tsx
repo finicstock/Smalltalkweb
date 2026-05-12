@@ -7,8 +7,7 @@ import { ArrowRight, TrendingUp, Lock, Eye, Zap, BarChart3, Shield, Check, Send 
 import { Link } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-
-const LOGO_URL = "/manus-storage/logo_nobg_4a51d334.png";
+import BrandLogo from "@/components/BrandLogo";
 
 function HeroSection() {
   return (
@@ -16,7 +15,12 @@ function HeroSection() {
       <div className="container py-20 md:py-28">
         <div className="max-w-3xl mx-auto text-center space-y-6">
           <div className="flex justify-center mb-6">
-            <img src={LOGO_URL} alt="닉스의 스몰톡" className="h-28 md:h-36 w-auto" />
+            <BrandLogo
+              className="flex-col gap-3"
+              imageClassName="h-28 md:h-36 w-auto"
+              markClassName="h-20 w-20 text-3xl md:h-24 md:w-24 md:text-4xl"
+              textClassName="text-2xl md:text-3xl"
+            />
           </div>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground leading-tight">
             투자 대회 1위 출신 닉스가 말하는<br className="hidden sm:block" /> 투자에 대한 작은 이야기, 지금 함께하세요.

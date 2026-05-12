@@ -21,6 +21,111 @@ import {
 import { ENV } from './_core/env';
 
 let _db: MySql2Database<typeof schema> | null = null;
+type ContentRow = typeof contents.$inferSelect;
+
+let memoryContentId = 1000;
+
+const memoryContents: ContentRow[] = [
+  {
+    id: 1,
+    title: "ETF 입문 가이드",
+    slug: "etf-beginner-guide",
+    excerpt: "장기 투자자를 위한 ETF 기본 개념과 활용법을 정리했습니다.",
+    body: "ETF의 구조, 장점, 비용, 분산 투자 방식까지 장기 투자자가 먼저 알아야 할 핵심을 정리했습니다.",
+    thumbnailUrl: null,
+    contentType: "article",
+    videoUrl: null,
+    accessLevel: "free",
+    status: "published",
+    categoryId: null,
+    authorId: 99,
+    tags: "ETF,투자",
+    viewCount: 0,
+    scheduledAt: null,
+    publishedAt: new Date("2026-01-01T00:00:00.000Z"),
+    metaTitle: null,
+    metaDescription: null,
+    ogImageUrl: null,
+    previewToken: null,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  },
+  {
+    id: 2,
+    title: "2026 상반기 시장 전망",
+    slug: "market-outlook-2026-h1",
+    excerpt: "프리미엄 구독자를 위한 2026년 상반기 시장 전망입니다.",
+    body: "금리, 실적, 업종 흐름을 바탕으로 2026년 상반기 시장에서 주목할 변수를 정리한 프리미엄 리포트입니다.",
+    thumbnailUrl: null,
+    contentType: "article",
+    videoUrl: null,
+    accessLevel: "paid",
+    status: "published",
+    categoryId: null,
+    authorId: 99,
+    tags: "시장전망,프리미엄",
+    viewCount: 0,
+    scheduledAt: null,
+    publishedAt: new Date("2026-01-02T00:00:00.000Z"),
+    metaTitle: null,
+    metaDescription: null,
+    ogImageUrl: null,
+    previewToken: null,
+    createdAt: new Date("2026-01-02T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-02T00:00:00.000Z"),
+  },
+];
+
+function createMemoryContent(data: InsertContent): ContentRow {
+  const now = new Date();
+  return {
+    id: memoryContentId++,
+    title: data.title,
+    slug: data.slug,
+    excerpt: data.excerpt ?? null,
+    body: data.body ?? null,
+    thumbnailUrl: data.thumbnailUrl ?? null,
+    contentType: data.contentType ?? "article",
+    videoUrl: data.videoUrl ?? null,
+    accessLevel: data.accessLevel ?? "free",
+    status: data.status ?? "draft",
+    categoryId: data.categoryId ?? null,
+    authorId: data.authorId ?? null,
+    tags: data.tags ?? null,
+    viewCount: data.viewCount ?? 0,
+    scheduledAt: data.scheduledAt ?? null,
+    publishedAt: data.publishedAt ?? null,
+    metaTitle: data.metaTitle ?? null,
+    metaDescription: data.metaDescription ?? null,
+    ogImageUrl: data.ogImageUrl ?? null,
+    previewToken: data.previewToken ?? null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function sortByNewestCreated(a: ContentRow, b: ContentRow) {
+  return b.createdAt.getTime() - a.createdAt.getTime();
+}
+
+function sortByNewestPublished(a: ContentRow, b: ContentRow) {
+  return (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0);
+}
+
+function matchesContentFilters(
+  item: ContentRow,
+  opts: { categoryId?: number; search?: string; contentType?: string }
+) {
+  if (item.status !== "published") return false;
+  if (opts.categoryId && item.categoryId !== opts.categoryId) return false;
+  if (opts.contentType && item.contentType !== opts.contentType) return false;
+  if (opts.search) {
+    const search = opts.search.toLowerCase();
+    const haystack = `${item.title} ${item.excerpt ?? ""}`.toLowerCase();
+    if (!haystack.includes(search)) return false;
+  }
+  return true;
+}
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
@@ -96,7 +201,12 @@ export async function deleteCategory(id: number) {
 // ─── Contents ────────────────────────────────────────
 export async function listPublishedContents(opts: { limit?: number; offset?: number; categoryId?: number; search?: string; contentType?: string } = {}) {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) {
+    return memoryContents
+      .filter((item) => matchesContentFilters(item, opts))
+      .sort(sortByNewestPublished)
+      .slice(opts.offset ?? 0, (opts.offset ?? 0) + (opts.limit ?? 20));
+  }
   const conds: any[] = [eq(contents.status, "published")];
   if (opts.categoryId) conds.push(eq(contents.categoryId, opts.categoryId));
   if (opts.contentType) conds.push(eq(contents.contentType, opts.contentType as any));
@@ -106,7 +216,7 @@ export async function listPublishedContents(opts: { limit?: number; offset?: num
 
 export async function getPublishedContentCount(opts: { categoryId?: number; search?: string; contentType?: string } = {}) {
   const db = await getDb();
-  if (!db) return 0;
+  if (!db) return memoryContents.filter((item) => matchesContentFilters(item, opts)).length;
   const conds: any[] = [eq(contents.status, "published")];
   if (opts.categoryId) conds.push(eq(contents.categoryId, opts.categoryId));
   if (opts.contentType) conds.push(eq(contents.contentType, opts.contentType as any));
@@ -117,52 +227,77 @@ export async function getPublishedContentCount(opts: { categoryId?: number; sear
 
 export async function getContentBySlug(slug: string) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return memoryContents.find((item) => item.slug === slug);
   const r = await db.select().from(contents).where(eq(contents.slug, slug)).limit(1);
   return r[0];
 }
 
 export async function getContentById(id: number) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return memoryContents.find((item) => item.id === id);
   const r = await db.select().from(contents).where(eq(contents.id, id)).limit(1);
   return r[0];
 }
 
 export async function incrementViewCount(id: number) {
   const db = await getDb();
-  if (!db) return;
+  if (!db) {
+    const item = memoryContents.find((content) => content.id === id);
+    if (item) item.viewCount += 1;
+    return;
+  }
   await db.update(contents).set({ viewCount: sql`${contents.viewCount} + 1` }).where(eq(contents.id, id));
 }
 
 export async function listAllContents(opts: { limit?: number; offset?: number } = {}) {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) {
+    return [...memoryContents]
+      .sort(sortByNewestCreated)
+      .slice(opts.offset ?? 0, (opts.offset ?? 0) + (opts.limit ?? 50));
+  }
   return db.select().from(contents).orderBy(desc(contents.createdAt)).limit(opts.limit ?? 50).offset(opts.offset ?? 0);
 }
 
 export async function getAllContentCount() {
   const db = await getDb();
-  if (!db) return 0;
+  if (!db) return memoryContents.length;
   const r = await db.select({ count: count() }).from(contents);
   return r[0]?.count ?? 0;
 }
 
 export async function createContent(data: InsertContent) {
   const db = await getDb();
-  if (!db) return;
+  if (!db) {
+    memoryContents.unshift(createMemoryContent(data));
+    return;
+  }
   await db.insert(contents).values(data);
 }
 
 export async function updateContent(id: number, data: Partial<InsertContent>) {
   const db = await getDb();
-  if (!db) return;
+  if (!db) {
+    const index = memoryContents.findIndex((item) => item.id === id);
+    if (index >= 0) {
+      memoryContents[index] = {
+        ...memoryContents[index],
+        ...data,
+        updatedAt: new Date(),
+      } as ContentRow;
+    }
+    return;
+  }
   await db.update(contents).set(data).where(eq(contents.id, id));
 }
 
 export async function deleteContent(id: number) {
   const db = await getDb();
-  if (!db) return;
+  if (!db) {
+    const index = memoryContents.findIndex((item) => item.id === id);
+    if (index >= 0) memoryContents.splice(index, 1);
+    return;
+  }
   await db.delete(contents).where(eq(contents.id, id));
 }
 
@@ -357,7 +492,13 @@ export async function removeContentFromPlaylist(playlistId: number, contentId: n
 // ─── Dashboard Stats ─────────────────────────────────
 export async function getDashboardStats() {
   const db = await getDb();
-  if (!db) return { users: 0, contents: 0, activeSubscriptions: 0 };
+  if (!db) {
+    return {
+      users: 0,
+      contents: memoryContents.filter((item) => item.status === "published").length,
+      activeSubscriptions: 0,
+    };
+  }
   const [u, c, as_] = await Promise.all([
     db.select({ count: count() }).from(users),
     db.select({ count: count() }).from(contents).where(eq(contents.status, "published")),

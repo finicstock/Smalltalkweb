@@ -7,12 +7,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import BrandLogo from "@/components/BrandLogo";
 import { getLoginUrl } from "@/const";
 import { Menu, X, Search, User, LogOut, Settings, CreditCard } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-
-const LOGO_URL = "/manus-storage/logo_nobg_4a51d334.png";
 
 const NAV_ITEMS = [
   { label: "홈", href: "/" },
@@ -37,7 +36,7 @@ export default function Header() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 shrink-0">
-            <img src={LOGO_URL} alt="닉스의 스몰톡" className="h-10 w-auto" />
+            <BrandLogo imageClassName="h-10 w-auto" />
           </Link>
 
           {/* Desktop Navigation */}

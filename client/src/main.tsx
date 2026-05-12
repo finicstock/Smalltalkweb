@@ -39,6 +39,25 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   window.location.href = getLoginUrl();
 };
 
+const loadAnalytics = () => {
+  const endpoint = import.meta.env.VITE_ANALYTICS_ENDPOINT?.trim();
+  const websiteId = import.meta.env.VITE_ANALYTICS_WEBSITE_ID?.trim();
+
+  if (!endpoint || !websiteId || typeof document === "undefined") return;
+
+  try {
+    const script = document.createElement("script");
+    script.defer = true;
+    script.src = new URL("umami", `${endpoint.replace(/\/+$/, "")}/`).toString();
+    script.dataset.websiteId = websiteId;
+    document.body.appendChild(script);
+  } catch (error) {
+    console.warn("[Analytics] Invalid VITE_ANALYTICS_ENDPOINT.", error);
+  }
+};
+
+loadAnalytics();
+
 queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {
     const error = event.query.state.error;

@@ -6,11 +6,10 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
+import BrandLogo from "@/components/BrandLogo";
 import { Check, Zap, Crown, Shield, BarChart3, Star } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-
-const LOGO_URL = "/manus-storage/logo_nobg_4a51d334.png";
 
 export default function Pricing() {
   const { user, isAuthenticated } = useAuth();
@@ -41,7 +40,12 @@ export default function Pricing() {
       <section className="bg-gradient-to-b from-primary/5 via-background to-background py-16 md:py-24">
         <div className="container text-center">
           <div className="flex justify-center mb-6">
-            <img src={LOGO_URL} alt="닉스의 스몰톡" className="h-20 w-auto" />
+            <BrandLogo
+              className="flex-col gap-2"
+              imageClassName="h-20 w-auto"
+              markClassName="h-16 w-16 text-2xl"
+              textClassName="text-xl"
+            />
           </div>
           <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
             프리미엄 구독

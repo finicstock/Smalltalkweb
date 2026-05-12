@@ -1,6 +1,5 @@
 import { Link } from "wouter";
-
-const LOGO_URL = "/manus-storage/logo_nobg_4a51d334.png";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function Footer() {
   return (
@@ -10,7 +9,12 @@ export default function Footer() {
           {/* Brand */}
           <div className="space-y-4">
             <Link href="/" className="flex items-center gap-2">
-              <img src={LOGO_URL} alt="닉스의 스몰톡" className="h-10 w-auto brightness-0 invert" />
+              <BrandLogo
+                imageClassName="h-10 w-auto"
+                invertImage
+                markClassName="bg-primary-foreground text-primary"
+                textClassName="text-primary-foreground"
+              />
             </Link>
             <p className="text-sm text-primary-foreground/70 leading-relaxed">
               투자의 본질을 이야기합니다.<br />

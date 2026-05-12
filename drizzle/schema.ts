@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, bigint, json } from "drizzle-orm/mysql-core";
+import { date, int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, bigint, json } from "drizzle-orm/mysql-core";
 /**
  * Core user table backing auth flow.
  */
@@ -182,3 +182,57 @@ export const contentTemplates = mysqlTable("content_templates", {
 });
 export type ContentTemplate = typeof contentTemplates.$inferSelect;
 export type InsertContentTemplate = typeof contentTemplates.$inferInsert;
+/**
+ * Content statistics (daily/weekly views)
+ */
+export const contentStats = mysqlTable("content_stats", {
+  id: int("id").autoincrement().primaryKey(),
+  contentId: int("contentId").notNull(),
+  date: date("date").notNull(),
+  views: int("views").default(0).notNull(),
+  uniqueVisitors: int("uniqueVisitors").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ContentStat = typeof contentStats.$inferSelect;
+export type InsertContentStat = typeof contentStats.$inferInsert;
+/**
+ * Newsletter subscriptions
+ */
+export const newsletterSubscribers = mysqlTable("newsletter_subscribers", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  isSubscribed: boolean("isSubscribed").default(true).notNull(),
+  subscribedAt: timestamp("subscribedAt").defaultNow().notNull(),
+  unsubscribedAt: timestamp("unsubscribedAt"),
+});
+export type NewsletterSubscriber = typeof newsletterSubscribers.$inferSelect;
+export type InsertNewsletterSubscriber = typeof newsletterSubscribers.$inferInsert;
+/**
+ * Author profile
+ */
+export const authorProfile = mysqlTable("author_profile", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  bio: text("bio"),
+  profileImageUrl: text("profileImageUrl"),
+  twitterUrl: varchar("twitterUrl", { length: 500 }),
+  instagramUrl: varchar("instagramUrl", { length: 500 }),
+  linkedinUrl: varchar("linkedinUrl", { length: 500 }),
+  websiteUrl: varchar("websiteUrl", { length: 500 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type AuthorProfile = typeof authorProfile.$inferSelect;
+export type InsertAuthorProfile = typeof authorProfile.$inferInsert;
+/**
+ * User theme preferences
+ */
+export const userPreferences = mysqlTable("user_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  theme: mysqlEnum("theme", ["light", "dark", "auto"]).default("auto").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type UserPreference = typeof userPreferences.$inferSelect;
+export type InsertUserPreference = typeof userPreferences.$inferInsert;

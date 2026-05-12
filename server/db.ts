@@ -1,5 +1,6 @@
-import { eq, desc, asc, like, or, and, sql, count } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { eq, desc, asc, like, or, and, sql, count, gte } from "drizzle-orm";
+import { drizzle, MySql2Database } from "drizzle-orm/mysql2";
+import * as schema from "../drizzle/schema";
 import {
   InsertUser, users,
   contents, InsertContent,
@@ -12,15 +13,19 @@ import {
   playlistContents, InsertPlaylistContent,
   contentVersions, InsertContentVersion,
   contentTemplates, InsertContentTemplate,
+  contentStats, InsertContentStat,
+  newsletterSubscribers, InsertNewsletterSubscriber,
+  authorProfile, InsertAuthorProfile,
+  userPreferences, InsertUserPreference,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
-let _db: ReturnType<typeof drizzle> | null = null;
+let _db: MySql2Database<typeof schema> | null = null;
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _db = drizzle(process.env.DATABASE_URL!, { schema, mode: 'default' as const }) as unknown as MySql2Database<typeof schema>;
     } catch (error) {
       console.error("Database connection failed:", error);
       return null;
@@ -424,4 +429,143 @@ export async function getContentByPreviewToken(token: string) {
   if (!db) return undefined;
   const r = await db.select().from(contents).where(eq(contents.previewToken, token)).limit(1);
   return r[0];
+}
+
+// ─── Content Statistics ───────────────────────────────────────────
+export async function getContentStats(contentId: number, days: number = 30) {
+  const db = await getDb();
+  if (!db) return [];
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  return db.query.contentStats.findMany({
+    where: and(
+      eq(contentStats.contentId, contentId),
+      gte(contentStats.date, startDate)
+    ),
+    orderBy: asc(contentStats.date),
+  });
+}
+
+export async function getTopContents(limit: number = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.query.contents.findMany({
+    where: eq(contents.status, "published"),
+    orderBy: desc(contents.viewCount),
+    limit,
+  });
+}
+
+export async function recordContentView(contentId: number) {
+  const db = await getDb();
+  if (!db) return;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const existing = await db.query.contentStats.findFirst({
+    where: and(
+      eq(contentStats.contentId, contentId),
+      eq(contentStats.date, today)
+    ),
+  });
+  
+  if (existing) {
+    await db.update(contentStats)
+      .set({ views: existing.views + 1 })
+      .where(eq(contentStats.id, existing.id));
+  } else {
+    await db.insert(contentStats).values({
+      contentId: contentId,
+      date: today,
+      views: 1,
+      uniqueVisitors: 1,
+    });
+  }
+  
+  // Update content viewCount
+  const content = await db.query.contents.findFirst({
+    where: eq(contents.id, contentId),
+  });
+  if (content) {
+    await db.update(contents)
+      .set({ viewCount: content.viewCount + 1 })
+      .where(eq(contents.id, contentId));
+  }
+}
+
+// ─── Newsletter Subscribers ───────────────────────────────────────
+export async function subscribeNewsletter(email: string) {
+  const db = await getDb();
+  if (!db) return;
+  return db.insert(newsletterSubscribers).values({
+    email,
+    isSubscribed: true,
+  }).onDuplicateKeyUpdate({
+    set: { isSubscribed: true, subscribedAt: new Date() }
+  });
+}
+
+export async function unsubscribeNewsletter(email: string) {
+  const db = await getDb();
+  if (!db) return;
+  return db.update(newsletterSubscribers)
+    .set({ isSubscribed: false, unsubscribedAt: new Date() })
+    .where(eq(newsletterSubscribers.email, email));
+}
+
+export async function getActiveNewsletterSubscribers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.query.newsletterSubscribers.findMany({
+    where: eq(newsletterSubscribers.isSubscribed, true),
+  });
+}
+
+// ─── Author Profile ───────────────────────────────────────────────
+export async function getAuthorProfile(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  return db.query.authorProfile.findFirst({
+    where: eq(authorProfile.userId, userId),
+  });
+}
+
+export async function updateAuthorProfile(userId: number, data: Partial<typeof authorProfile.$inferInsert>) {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await getAuthorProfile(userId);
+  if (existing) {
+    return db.update(authorProfile)
+      .set(data)
+      .where(eq(authorProfile.userId, userId));
+  } else {
+    return db.insert(authorProfile).values({
+      userId,
+      ...data,
+    });
+  }
+}
+
+// ─── User Preferences ───────────────────────────────────────────
+export async function getUserPreference(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  return db.query.userPreferences.findFirst({
+    where: eq(userPreferences.userId, userId),
+  });
+}
+
+export async function updateUserPreference(userId: number, theme: "light" | "dark" | "auto") {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await getUserPreference(userId);
+  if (existing) {
+    return db.update(userPreferences)
+      .set({ theme })
+      .where(eq(userPreferences.userId, userId));
+  } else {
+    return db.insert(userPreferences).values({
+      userId,
+      theme,
+    });
+  }
 }

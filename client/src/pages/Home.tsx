@@ -24,15 +24,15 @@ function HeroSection() {
               textClassName="text-xl md:text-3xl"
             />
           </div>
-          <h1 className="relative left-1/2 w-screen -translate-x-1/2 px-2 font-bold tracking-tight text-foreground leading-tight sm:static sm:w-auto sm:translate-x-0 sm:px-0">
-            <span className="block whitespace-nowrap text-[18px] max-[359px]:text-[15px] sm:text-3xl md:text-5xl">
+          <h1 className="relative left-1/2 w-screen -translate-x-1/2 px-2 text-[18px] font-bold tracking-tight text-foreground leading-tight max-[359px]:text-base sm:static sm:w-auto sm:translate-x-0 sm:px-0 sm:text-3xl md:text-5xl">
+            <span className="block whitespace-nowrap">
               투자대회 1위 출신 닉스가 말하는
             </span>
-            <span className="mt-1 block whitespace-nowrap text-[14px] max-[359px]:text-[12px] sm:text-3xl md:text-5xl">
+            <span className="mt-1 block whitespace-nowrap">
               투자에 대한 작은 이야기, 지금 함께하세요.
             </span>
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-base md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             시장의 소음을 걷어내고, 진짜 중요한 것에 집중합니다.
             닉스의 스몰톡에서 깊이 있는 투자 인사이트를 만나보세요.
           </p>
